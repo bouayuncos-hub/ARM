@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>A.R.M — Alliance pour le Rassemblement Malien</title>
+<meta name="description" content="A.R.M — Alliance pour le Rassemblement Malien. Mouvement pour un Mali uni, fraternel et prospère. Fraternité • Liberté • Égalité.">
+<meta name="theme-color" content="#0f7a3d">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="logo.png">
+<link rel="apple-touch-icon" href="logo.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<style>
+  :root{--vert:#0f7a3d;--or:#f4b400;--rouge:#c1272d;--nuit:#0b1f14;}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#f7f8f6;}
+  .flag-bar{height:6px;background:linear-gradient(90deg,#0f7a3d 0 33%,#f4b400 33% 66%,#c1272d 66% 100%);}
+  .btn-primary{background:var(--vert);color:#fff;transition:.2s;}
+  .btn-primary:hover{background:#0c5f30;}
+  .btn-or{background:var(--or);color:#3a2a00;}
+  .btn-or:hover{filter:brightness(.95);}
+  .section-title{position:relative;display:inline-block;}
+  .section-title:after{content:'';position:absolute;left:0;bottom:-8px;width:60px;height:4px;background:var(--or);border-radius:2px;}
+  .card{background:#fff;border-radius:14px;box-shadow:0 4px 18px rgba(0,0,0,.06);}
+  .fade-in{opacity:0;transform:translateY(16px);transition:.6s;}
+  .fade-in.show{opacity:1;transform:none;}
+  #chatBox{scrollbar-width:thin;}
+  .nav-link{position:relative;}
+  .nav-link.active{color:var(--vert);font-weight:600;}
+  ::-webkit-scrollbar{width:8px;}
+  ::-webkit-scrollbar-thumb{background:#ccc;border-radius:4px;}
+</style>
+</head>
+<body class="text-gray-800">
+<div class="flag-bar"></div>
+
+<!-- ===== NAV ===== -->
+<header class="sticky top-0 z-40 bg-white/95 backdrop-blur shadow-sm">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
+    <div class="flex items-center gap-2">
+      <img class="arm-logo w-11 h-11 rounded-full object-cover border-2 border-[var(--vert)]" alt="Logo A.R.M">
+      <div class="leading-tight">
+        <p class="font-bold text-sm md:text-base">Alliance pour le Rassemblement Malien</p>
+        <p class="text-[11px] text-gray-500">Fraternité • Liberté • Égalité</p>
+      </div>
+    </div>
+    <nav class="hidden md:flex gap-5 text-sm font-medium">
+      <a href="#accueil" class="nav-link">Accueil</a>
+      <a href="#programme" class="nav-link">Programme</a>
+      <a href="#bureau" class="nav-link">Bureau</a>
+      <a href="#dons" class="nav-link">Faire un don</a>
+      <a href="#adhesion" class="nav-link">Adhésion</a>
+      <a href="#actualites" class="nav-link">Actualités</a>
+      <a href="#chat" class="nav-link">Chat</a>
+      <a href="#contact" class="nav-link">Contact</a>
+    </nav>
+    <div class="flex items-center gap-2">
+      <button id="installBtn" class="hidden btn-or text-xs font-bold px-3 py-2 rounded-full">📲 Installer l'app</button>
+      <button id="menuBtn" class="md:hidden text-2xl">☰</button>
+    </div>
+  </div>
+  <div id="mobileMenu" class="hidden md:hidden flex flex-col gap-3 px-4 pb-4 text-sm font-medium bg-white">
+    <a href="#accueil">Accueil</a><a href="#programme">Programme</a><a href="#bureau">Bureau</a>
+    <a href="#dons">Faire un don</a><a href="#adhesion">Adhésion</a><a href="#actualites">Actualités</a>
+    <a href="#chat">Chat</a><a href="#contact">Contact</a>
+  </div>
+</header>
+
+<!-- ===== HERO ===== -->
+<section id="accueil" class="relative text-white py-20 px-4 text-center" style="background:linear-gradient(135deg,var(--nuit),var(--vert));">
+  <div class="max-w-3xl mx-auto">
+    <img class="arm-logo w-28 h-28 mx-auto rounded-full border-4 border-[var(--or)] object-cover mb-6 bg-white/10" alt="Logo A.R.M">
+    <h1 class="text-3xl md:text-5xl font-extrabold mb-3">Alliance pour le Rassemblement Malien</h1>
+    <p class="text-lg md:text-xl text-[var(--or)] font-semibold tracking-wide mb-4">FRATERNITÉ • LIBERTÉ • ÉGALITÉ</p>
+    <p class="text-gray-200 mb-8">Mouvement pour un Mali uni, fraternel et prospère. Rejoignez-nous où que vous soyez, au pays comme dans la diaspora.</p>
+    <div class="flex flex-wrap justify-center gap-3">
+      <a href="#adhesion" class="btn-or font-bold px-6 py-3 rounded-full">Adhérer au parti</a>
+      <a href="#dons" class="border-2 border-white px-6 py-3 rounded-full font-bold hover:bg-white hover:text-[var(--vert)]">Faire un don</a>
+    </div>
+  </div>
+</section>
+
+<!-- ===== PROGRAMME ===== -->
+<section id="programme" class="py-16 px-4 max-w-6xl mx-auto">
+  <h2 class="section-title text-2xl md:text-3xl font-extrabold mb-10">Notre programme politique</h2>
+  <div id="programmeGrid" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
+    <!-- injecté / éditable -->
+  </div>
+</section>
+
+<!-- ===== BUREAU EXECUTIF ===== -->
+<section id="bureau" class="py-16 px-4 bg-white">
+  <div class="max-w-6xl mx-auto">
+    <h2 class="section-title text-2xl md:text-3xl font-extrabold mb-10">Bureau exécutif</h2>
+    <div id="bureauGrid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+  </div>
+</section>
+
+<!-- ===== DONS ===== -->
+<section id="dons" class="py-16 px-4 max-w-4xl mx-auto">
+  <h2 class="section-title text-2xl md:text-3xl font-extrabold mb-10">Soutenir l'A.R.M</h2>
+  <div class="card p-6 md:p-8">
+    <p class="text-gray-600 mb-6">Votre don, quel que soit son montant, renforce notre action pour un Mali uni, fraternel et prospère.</p>
+    <div class="grid grid-cols-3 md:grid-cols-5 gap-3 mb-6" id="montantsDon">
+      <button class="montant-btn card py-3 font-bold hover:border-2 hover:border-[var(--vert)]" data-m="5">5 €</button>
+      <button class="montant-btn card py-3 font-bold hover:border-2 hover:border-[var(--vert)]" data-m="10">10 €</button>
+      <button class="montant-btn card py-3 font-bold hover:border-2 hover:border-[var(--vert)]" data-m="20">20 €</button>
+      <button class="montant-btn card py-3 font-bold hover:border-2 hover:border-[var(--vert)]" data-m="50">50 €</button>
+      <button class="montant-btn card py-3 font-bold hover:border-2 hover:border-[var(--vert)]" data-m="100">100 €</button>
+    </div>
+    <div class="flex items-center gap-3 mb-6">
+      <span class="text-sm text-gray-500">Ou montant libre :</span>
+      <input type="number" id="montantLibre" min="1" class="border rounded-lg px-3 py-2 w-32" placeholder="€">
+    </div>
+
+    <div class="flex gap-2 mb-6" id="donTabs">
+      <button data-tab="carte" class="donTab flex-1 py-2 rounded-lg font-bold btn-primary">💳 Carte bancaire</button>
+      <button data-tab="virement" class="donTab flex-1 py-2 rounded-lg font-bold bg-gray-100">🏦 Virement BMS Mali</button>
+    </div>
+
+    <!-- Paiement carte (simulé) -->
+    <form id="formCarte" class="space-y-3">
+      <input required id="donNom" placeholder="Nom complet" class="w-full border rounded-lg px-3 py-2">
+      <input required id="donEmail" type="email" placeholder="Email" class="w-full border rounded-lg px-3 py-2">
+      <input required id="carteNum" maxlength="19" placeholder="Numéro de carte (VISA / Mastercard)" class="w-full border rounded-lg px-3 py-2">
+      <div class="flex gap-3">
+        <input required id="carteExp" maxlength="5" placeholder="MM/AA" class="w-1/2 border rounded-lg px-3 py-2">
+        <input required id="carteCvc" maxlength="4" placeholder="CVC" class="w-1/2 border rounded-lg px-3 py-2">
+      </div>
+      <p class="text-xs text-gray-400">🔒 Paiement sécurisé — traitement simulé côté démonstration. Pour un encaissement réel, connecter un prestataire agréé (Stripe, PayPal ou CB en ligne BMS).</p>
+      <button class="btn-primary w-full py-3 rounded-lg font-bold">Faire un don <span id="montantAffiche">de 5 €</span></button>
+    </form>
+
+    <!-- Virement bancaire -->
+    <div id="formVirement" class="hidden space-y-3">
+      <div class="bg-gray-50 rounded-lg p-4 text-sm space-y-1">
+        <p><b>Banque :</b> BMS SA (Banque Malienne de Solidarité)</p>
+        <p><b>Titulaire du compte :</b> Alliance pour le Rassemblement Malien</p>
+        <p><b>Compte épargne BMS — Mali</b></p>
+        <p><b>IBAN / N° compte :</b> à renseigner par l'administrateur</p>
+        <p><b>Référence à indiquer :</b> DON-ARM-<span id="refVirement"></span></p>
+      </div>
+      <button id="btnVirementFait" class="btn-primary w-full py-3 rounded-lg font-bold">J'ai effectué le virement</button>
+    </div>
+    <div id="donConfirm" class="hidden mt-4 bg-green-50 border border-green-300 text-green-800 rounded-lg p-4 text-sm"></div>
+  </div>
+</section>
+
+<!-- ===== ADHESION ===== -->
+<section id="adhesion" class="py-16 px-4 bg-white">
+  <div class="max-w-3xl mx-auto">
+    <h2 class="section-title text-2xl md:text-3xl font-extrabold mb-10">Adhérer au parti</h2>
+    <form id="formAdhesion" class="card p-6 md:p-8 grid sm:grid-cols-2 gap-4">
+      <input required id="aNom" placeholder="Nom" class="border rounded-lg px-3 py-2">
+      <input required id="aPrenom" placeholder="Prénom" class="border rounded-lg px-3 py-2">
+      <input required id="aTel" placeholder="Téléphone" class="border rounded-lg px-3 py-2">
+      <input id="aEmail" type="email" placeholder="Email" class="border rounded-lg px-3 py-2">
+      <input id="aProfession" placeholder="Profession" class="border rounded-lg px-3 py-2">
+      <input id="aPays" placeholder="Pays de résidence" class="border rounded-lg px-3 py-2">
+      <select id="aRegion" class="border rounded-lg px-3 py-2"><option value="">Région</option></select>
+      <select id="aCercle" class="border rounded-lg px-3 py-2"><option value="">Cercle / Commune</option></select>
+      <input id="aQuartier" placeholder="Quartier / Ville" class="border rounded-lg px-3 py-2 sm:col-span-2">
+      <textarea id="aMessage" placeholder="Message (optionnel)" class="border rounded-lg px-3 py-2 sm:col-span-2" rows="3"></textarea>
+      <button class="btn-primary sm:col-span-2 py-3 rounded-lg font-bold">Envoyer ma demande d'adhésion</button>
+    </form>
+    <div id="adhesionConfirm" class="hidden mt-4 bg-green-50 border border-green-300 text-green-800 rounded-lg p-4 text-sm max-w-3xl mx-auto"></div>
+  </div>
+</section>
+
+<!-- ===== ACTUALITES / EVENEMENTS ===== -->
+<section id="actualites" class="py-16 px-4 max-w-6xl mx-auto">
+  <h2 class="section-title text-2xl md:text-3xl font-extrabold mb-10">Actualités & Événements</h2>
+  <div id="actualitesGrid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-4">
+    <p class="text-gray-400 text-sm">Chargement des actualités…</p>
+  </div>
+</section>
+
+<!-- ===== CHAT PUBLIC ===== -->
+<section id="chat" class="py-16 px-4 bg-white">
+  <div class="max-w-2xl mx-auto">
+    <h2 class="section-title text-2xl md:text-3xl font-extrabold mb-10">Chat public des militants</h2>
+    <div class="card p-4 flex flex-col h-[420px]">
+      <div id="chatBox" class="flex-1 overflow-y-auto space-y-2 mb-3 px-1"></div>
+      <form id="chatForm" class="flex gap-2">
+        <input required id="chatNom" placeholder="Votre nom" class="border rounded-lg px-3 py-2 w-28 md:w-36 text-sm">
+        <input required id="chatMsg" placeholder="Votre message…" class="border rounded-lg px-3 py-2 flex-1 text-sm">
+        <button class="btn-primary px-4 rounded-lg font-bold">➤</button>
+      </form>
+    </div>
+  </div>
+</section>
+
+<!-- ===== CONTACT ===== -->
+<section id="contact" class="py-16 px-4 max-w-6xl mx-auto">
+  <h2 class="section-title text-2xl md:text-3xl font-extrabold mb-10">Contact</h2>
+  <div class="grid md:grid-cols-2 gap-8">
+    <form id="formContact" class="card p-6 space-y-3">
+      <input required id="cNom" placeholder="Nom" class="w-full border rounded-lg px-3 py-2">
+      <input required id="cEmail" type="email" placeholder="Email" class="w-full border rounded-lg px-3 py-2">
+      <input id="cSujet" placeholder="Sujet" class="w-full border rounded-lg px-3 py-2">
+      <textarea required id="cMessage" placeholder="Votre message" rows="4" class="w-full border rounded-lg px-3 py-2"></textarea>
+      <button class="btn-primary w-full py-3 rounded-lg font-bold">Envoyer le message</button>
+      <div id="contactConfirm" class="hidden bg-green-50 border border-green-300 text-green-800 rounded-lg p-3 text-sm"></div>
+    </form>
+    <div class="card p-6 space-y-3 text-sm">
+      <p class="font-bold text-lg mb-2">Siège du parti</p>
+      <p>📍 Sebenikoro, Rue 530, Porte 245, Bamako, Mali</p>
+      <div id="contactDirigeants" class="pt-3 space-y-2"></div>
+    </div>
+  </div>
+</section>
+
+<footer class="bg-[var(--nuit)] text-gray-300 py-10 px-4 text-center text-sm">
+  <img class="arm-logo w-16 h-16 mx-auto rounded-full mb-4 border-2 border-[var(--or)] object-cover" alt="Logo A.R.M">
+  <div class="flag-bar mb-6 max-w-xs mx-auto rounded"></div>
+  <p class="font-bold text-white">Alliance pour le Rassemblement Malien</p>
+  <p class="text-[var(--or)] mb-2">Fraternité • Liberté • Égalité</p>
+  <p>Sebenikoro, Rue 530, Porte 245 — Bamako, Mali</p>
+  <p class="mt-2 opacity-60">© <span id="anneeFooter"></span> A.R.M — Tous droits réservés</p>
+</footer>
+
+<script src="data.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

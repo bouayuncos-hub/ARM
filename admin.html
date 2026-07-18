@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Administration — A.R.M</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="icon" href="logo.png">
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  :root{--vert:#0f7a3d;--or:#f4b400;--nuit:#0b1f14;}
+  body{font-family:'Segoe UI',Arial,sans-serif;background:#f2f3f1;}
+  .tab-btn.active{background:var(--vert);color:#fff;}
+  .card{background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.06);}
+  table{width:100%;border-collapse:collapse;font-size:.85rem;}
+  th,td{padding:8px 10px;border-bottom:1px solid #eee;text-align:left;vertical-align:top;}
+  th{background:#f7f7f7;position:sticky;top:0;}
+  .pill{font-size:.7rem;padding:2px 8px;border-radius:999px;}
+</style>
+</head>
+<body>
+
+<!-- ===== LOGIN ===== -->
+<div id="loginScreen" class="min-h-screen flex items-center justify-center px-4" style="background:linear-gradient(135deg,var(--nuit),var(--vert));">
+  <form id="loginForm" class="bg-white rounded-2xl p-8 w-full max-w-sm space-y-4 shadow-xl">
+    <div class="text-center mb-2">
+      <img class="arm-logo w-16 h-16 rounded-full object-cover border-2 border-[var(--vert)] mx-auto mb-3" alt="Logo A.R.M">
+      <h1 class="font-bold text-lg">Administration A.R.M</h1>
+      <p class="text-xs text-gray-400">Accès réservé aux administrateurs</p>
+    </div>
+    <input required id="loginPass" type="password" placeholder="Mot de passe administrateur" class="w-full border rounded-lg px-3 py-2 text-center tracking-widest">
+    <button class="w-full py-3 rounded-lg font-bold text-white" style="background:var(--vert);">Se connecter</button>
+    <p id="loginErr" class="hidden text-red-600 text-xs text-center"></p>
+  </form>
+</div>
+
+<!-- ===== DASHBOARD ===== -->
+<div id="dashboard" class="hidden">
+  <header class="bg-white shadow-sm sticky top-0 z-30 flex items-center justify-between px-4 py-3">
+    <div class="flex items-center gap-2">
+      <img class="arm-logo w-9 h-9 rounded-full object-cover border border-[var(--vert)]" alt="Logo A.R.M">
+      <span class="font-bold">Tableau de bord</span>
+    </div>
+    <div class="flex items-center gap-3 text-sm">
+      <button id="logoutBtn" class="text-red-600 font-bold">Déconnexion</button>
+    </div>
+  </header>
+
+  <div class="max-w-7xl mx-auto p-4">
+    <div class="flex gap-2 overflow-x-auto mb-6 pb-1" id="tabs">
+      <button data-tab="stats" class="tab-btn active px-4 py-2 rounded-full font-bold text-sm whitespace-nowrap">📊 Statistiques</button>
+      <button data-tab="adhesions" class="tab-btn px-4 py-2 rounded-full font-bold text-sm bg-gray-200 whitespace-nowrap">🧑‍🤝‍🧑 Adhésions</button>
+      <button data-tab="dons" class="tab-btn px-4 py-2 rounded-full font-bold text-sm bg-gray-200 whitespace-nowrap">💶 Dons</button>
+      <button data-tab="actualites" class="tab-btn px-4 py-2 rounded-full font-bold text-sm bg-gray-200 whitespace-nowrap">📰 Actualités</button>
+      <button data-tab="evenements" class="tab-btn px-4 py-2 rounded-full font-bold text-sm bg-gray-200 whitespace-nowrap">📅 Événements</button>
+      <button data-tab="messages" class="tab-btn px-4 py-2 rounded-full font-bold text-sm bg-gray-200 whitespace-nowrap">✉️ Messages</button>
+      <button data-tab="chat" class="tab-btn px-4 py-2 rounded-full font-bold text-sm bg-gray-200 whitespace-nowrap">💬 Chat</button>
+      <button data-tab="galerie" class="tab-btn px-4 py-2 rounded-full font-bold text-sm bg-gray-200 whitespace-nowrap">🖼️ Galerie médias</button>
+    </div>
+
+    <!-- STATS -->
+    <section id="tab-stats" class="tab-content grid md:grid-cols-4 gap-4">
+      <div class="card p-4 text-center"><p class="text-3xl font-extrabold" id="statAdh">0</p><p class="text-xs text-gray-500">Adhésions</p></div>
+      <div class="card p-4 text-center"><p class="text-3xl font-extrabold" id="statDons">0 €</p><p class="text-xs text-gray-500">Total des dons</p></div>
+      <div class="card p-4 text-center"><p class="text-3xl font-extrabold" id="statMsg">0</p><p class="text-xs text-gray-500">Messages reçus</p></div>
+      <div class="card p-4 text-center"><p class="text-3xl font-extrabold" id="statEv">0</p><p class="text-xs text-gray-500">Événements à venir</p></div>
+      <div class="card p-4 md:col-span-4"><canvas id="chartAdh" height="90"></canvas></div>
+    </section>
+
+    <!-- ADHESIONS -->
+    <section id="tab-adhesions" class="tab-content hidden card p-4 overflow-x-auto">
+      <table><thead><tr><th>Nom</th><th>Tél</th><th>Région</th><th>Cercle</th><th>Statut</th><th>Actions</th></tr></thead>
+      <tbody id="tblAdhesions"></tbody></table>
+      <div id="sentinelAdhesions" class="text-center text-xs text-gray-400 py-3">Chargement…</div>
+    </section>
+
+    <!-- DONS -->
+    <section id="tab-dons" class="tab-content hidden card p-4 overflow-x-auto">
+      <table><thead><tr><th>Montant</th><th>Méthode</th><th>Nom/Réf.</th><th>Statut</th><th>Actions</th></tr></thead>
+      <tbody id="tblDons"></tbody></table>
+      <div id="sentinelDons" class="text-center text-xs text-gray-400 py-3">Chargement…</div>
+    </section>
+
+    <!-- ACTUALITES -->
+    <section id="tab-actualites" class="tab-content hidden">
+      <div class="card p-4 mb-4">
+        <h3 class="font-bold mb-3">Publier une actualité / un événement avec visio</h3>
+        <form id="formActu" class="grid md:grid-cols-2 gap-3">
+          <input required id="actuTitre" placeholder="Titre" class="border rounded-lg px-3 py-2">
+          <input id="actuDate" type="date" class="border rounded-lg px-3 py-2">
+          <input id="actuImage" placeholder="URL de l'image (optionnel)" class="border rounded-lg px-3 py-2 md:col-span-2">
+          <input id="actuLien" placeholder="Lien visioconférence (Zoom/Meet, optionnel)" class="border rounded-lg px-3 py-2 md:col-span-2">
+          <input id="actuLieu" placeholder="Lieu (optionnel)" class="border rounded-lg px-3 py-2 md:col-span-2">
+          <textarea required id="actuContenu" placeholder="Contenu" rows="3" class="border rounded-lg px-3 py-2 md:col-span-2"></textarea>
+          <button class="md:col-span-2 py-2 rounded-lg font-bold text-white" style="background:var(--vert);">Publier</button>
+        </form>
+      </div>
+      <div id="listeActu" class="space-y-3"></div>
+    </section>
+
+    <!-- EVENEMENTS (alias vers actualités avec date à venir) -->
+    <section id="tab-evenements" class="tab-content hidden">
+      <p class="text-sm text-gray-500 mb-3">Les événements sont gérés depuis l'onglet Actualités (renseigner une date et éventuellement un lien de visioconférence).</p>
+      <div id="listeEv" class="space-y-3"></div>
+    </section>
+
+    <!-- MESSAGES -->
+    <section id="tab-messages" class="tab-content hidden card p-4 overflow-x-auto">
+      <table><thead><tr><th>Nom</th><th>Email</th><th>Sujet</th><th>Message</th><th>Statut</th></tr></thead>
+      <tbody id="tblMessages"></tbody></table>
+    </section>
+
+    <!-- CHAT -->
+    <section id="tab-chat" class="tab-content hidden card p-4 overflow-x-auto">
+      <table><thead><tr><th>Nom</th><th>Message</th><th>Date</th><th></th></tr></thead>
+      <tbody id="tblChat"></tbody></table>
+      <div id="sentinelChat" class="text-center text-xs text-gray-400 py-3">Chargement…</div>
+    </section>
+
+    <!-- GALERIE MEDIAS -->
+    <section id="tab-galerie" class="tab-content hidden">
+      <div class="card p-4 mb-4">
+        <h3 class="font-bold mb-3">Ajouter des médias (compression automatique avant envoi)</h3>
+        <input id="galerieInput" type="file" accept="image/*" multiple class="block w-full text-sm mb-2">
+        <div id="galerieProgress" class="hidden text-xs text-gray-500 mb-2"></div>
+      </div>
+      <div id="galerieGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"></div>
+      <div id="sentinelGalerie" class="text-center text-xs text-gray-400 py-3">Chargement…</div>
+    </section>
+  </div>
+</div>
+
+<script src="data.js"></script>
+<script src="infinite-scroll.js"></script>
+<script src="media-gallery.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>
