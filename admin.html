@@ -61,6 +61,8 @@
       <button data-tab="messages" class="tab-btn px-4 py-2 rounded-full font-bold text-sm bg-gray-200 whitespace-nowrap">✉️ Messages</button>
       <button data-tab="chat" class="tab-btn px-4 py-2 rounded-full font-bold text-sm bg-gray-200 whitespace-nowrap">💬 Chat</button>
       <button data-tab="galerie" class="tab-btn px-4 py-2 rounded-full font-bold text-sm bg-gray-200 whitespace-nowrap">🖼️ Galerie médias</button>
+      <button data-tab="armtv" class="tab-btn px-4 py-2 rounded-full font-bold text-sm bg-gray-200 whitespace-nowrap">📺 ARM TV</button>
+      <button data-tab="contenu" class="tab-btn px-4 py-2 rounded-full font-bold text-sm bg-gray-200 whitespace-nowrap">🛠️ Contenu du site</button>
     </div>
 
     <!-- STATS -->
@@ -97,7 +99,7 @@
           <input id="actuLien" placeholder="Lien visioconférence (Zoom/Meet, optionnel)" class="border rounded-lg px-3 py-2 md:col-span-2">
           <input id="actuLieu" placeholder="Lieu (optionnel)" class="border rounded-lg px-3 py-2 md:col-span-2">
           <textarea required id="actuContenu" placeholder="Contenu" rows="3" class="border rounded-lg px-3 py-2 md:col-span-2"></textarea>
-          <button class="md:col-span-2 py-2 rounded-lg font-bold text-white" style="background:var(--vert);">Publier</button>
+          <button id="actuBtnSubmit" class="md:col-span-2 py-2 rounded-lg font-bold text-white" style="background:var(--vert);">Publier</button>
         </form>
       </div>
       <div id="listeActu" class="space-y-3"></div>
@@ -131,6 +133,77 @@
       </div>
       <div id="galerieGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"></div>
       <div id="sentinelGalerie" class="text-center text-xs text-gray-400 py-3">Chargement…</div>
+    </section>
+
+    <!-- ARM TV -->
+    <section id="tab-armtv" class="tab-content hidden">
+      <div class="card p-4 mb-4">
+        <h3 class="font-bold mb-1">🔴 Diffusion en direct</h3>
+        <p class="text-xs text-gray-400 mb-3">Colle ici l'URL du flux HLS (.m3u8) fourni par ton prestataire de streaming (ex. Cloudflare Stream) lors d'un événement en direct.</p>
+        <form id="formDirect" class="grid md:grid-cols-3 gap-3">
+          <input id="directTitre" placeholder="Titre du direct" class="border rounded-lg px-3 py-2 md:col-span-1">
+          <input id="directUrl" placeholder="URL du flux (.m3u8)" class="border rounded-lg px-3 py-2 md:col-span-2">
+          <button type="submit" data-on="true" class="py-2 rounded-lg font-bold text-white bg-red-600">🔴 Démarrer le direct</button>
+          <button type="submit" data-on="false" class="py-2 rounded-lg font-bold text-white bg-gray-500">⏹ Arrêter le direct</button>
+        </form>
+      </div>
+
+      <div class="card p-4 mb-4">
+        <h3 class="font-bold mb-3">Ajouter une vidéo à la médiathèque / playlist</h3>
+        <form id="formArmtv" class="grid md:grid-cols-2 gap-3">
+          <input required id="tvTitre" placeholder="Titre" class="border rounded-lg px-3 py-2 md:col-span-2">
+          <select id="tvTheme" class="border rounded-lg px-3 py-2"></select>
+          <input id="tvOrdre" type="number" placeholder="Ordre dans la playlist (0, 1, 2…)" class="border rounded-lg px-3 py-2">
+          <input required id="tvUrlVideo" placeholder="URL de la vidéo (.mp4 ou .m3u8)" class="border rounded-lg px-3 py-2 md:col-span-2">
+          <input id="tvMiniature" placeholder="URL de la miniature (optionnel)" class="border rounded-lg px-3 py-2 md:col-span-2">
+          <textarea id="tvDescription" placeholder="Description" rows="2" class="border rounded-lg px-3 py-2 md:col-span-2"></textarea>
+          <button class="md:col-span-2 py-2 rounded-lg font-bold text-white" style="background:var(--vert);">Ajouter (statut : en attente d'approbation)</button>
+        </form>
+      </div>
+
+      <div id="listeArmtv" class="space-y-3"></div>
+      <div id="sentinelArmtv" class="text-center text-xs text-gray-400 py-3">Chargement…</div>
+    </section>
+
+    <!-- CONTENU DU SITE -->
+    <section id="tab-contenu" class="tab-content hidden space-y-6">
+      <div class="card p-4">
+        <h3 class="font-bold mb-3">Infos générales</h3>
+        <form id="formInfo" class="grid md:grid-cols-3 gap-3">
+          <input id="infoDevise" placeholder="Devise du parti" class="border rounded-lg px-3 py-2">
+          <input id="infoSiege" placeholder="Adresse du siège" class="border rounded-lg px-3 py-2">
+          <input id="infoIban" placeholder="IBAN / N° compte BMS" class="border rounded-lg px-3 py-2">
+          <button class="md:col-span-3 py-2 rounded-lg font-bold text-white" style="background:var(--vert);">Enregistrer</button>
+        </form>
+      </div>
+
+      <div class="card p-4">
+        <h3 class="font-bold mb-3">Bureau exécutif</h3>
+        <form id="formBureauMembre" class="grid md:grid-cols-2 gap-3 mb-4">
+          <input type="hidden" id="bmIndex" value="-1">
+          <input required id="bmRole" placeholder="Rôle (ex: Président)" class="border rounded-lg px-3 py-2">
+          <input required id="bmNom" placeholder="Nom complet" class="border rounded-lg px-3 py-2">
+          <input id="bmProfession" placeholder="Profession (optionnel)" class="border rounded-lg px-3 py-2">
+          <input id="bmLieu" placeholder="Lieu (optionnel)" class="border rounded-lg px-3 py-2">
+          <input id="bmTel" placeholder="Téléphone (optionnel)" class="border rounded-lg px-3 py-2 md:col-span-2">
+          <button id="bmBtnSubmit" class="py-2 rounded-lg font-bold text-white" style="background:var(--vert);">Ajouter au bureau</button>
+          <button type="button" id="bmBtnAnnuler" class="hidden py-2 rounded-lg font-bold bg-gray-200">Annuler la modification</button>
+        </form>
+        <div id="listeBureau" class="space-y-2"></div>
+      </div>
+
+      <div class="card p-4">
+        <h3 class="font-bold mb-3">Programme politique</h3>
+        <form id="formProgrammeItem" class="grid md:grid-cols-4 gap-3 mb-4">
+          <input type="hidden" id="piIndex" value="-1">
+          <input required id="piIcone" placeholder="Émoji (ex: 📚)" class="border rounded-lg px-3 py-2">
+          <input required id="piTitre" placeholder="Titre" class="border rounded-lg px-3 py-2">
+          <input required id="piTexte" placeholder="Description" class="border rounded-lg px-3 py-2 md:col-span-2">
+          <button id="piBtnSubmit" class="py-2 rounded-lg font-bold text-white" style="background:var(--vert);">Ajouter au programme</button>
+          <button type="button" id="piBtnAnnuler" class="hidden py-2 rounded-lg font-bold bg-gray-200">Annuler la modification</button>
+        </form>
+        <div id="listeProgramme" class="space-y-2"></div>
+      </div>
     </section>
   </div>
 </div>

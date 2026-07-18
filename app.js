@@ -15,9 +15,9 @@ document.querySelectorAll('#mobileMenu a').forEach(a => a.onclick = () => {
 });
 
 /* ===================== RENDU PROGRAMME ===================== */
-function renderProgramme() {
+function renderProgramme(liste) {
   const grid = document.getElementById('programmeGrid');
-  grid.innerHTML = PROGRAMME.map(p => `
+  grid.innerHTML = (liste || PROGRAMME).map(p => `
     <div class="card p-5 text-center fade-in">
       <div class="text-4xl mb-3">${p.icone}</div>
       <h3 class="font-bold mb-2">${p.titre}</h3>
@@ -26,9 +26,10 @@ function renderProgramme() {
 }
 
 /* ===================== RENDU BUREAU ===================== */
-function renderBureau() {
+function renderBureau(liste) {
+  const membres = liste || BUREAU;
   const grid = document.getElementById('bureauGrid');
-  grid.innerHTML = BUREAU.map(m => `
+  grid.innerHTML = membres.map(m => `
     <div class="card p-5 fade-in">
       <p class="text-xs font-bold text-[var(--or)] uppercase mb-1">${m.role}</p>
       <p class="font-bold text-lg mb-1">${m.nom}</p>
@@ -39,10 +40,42 @@ function renderBureau() {
 
   // Contact section — dirigeants
   const cd = document.getElementById('contactDirigeants');
-  cd.innerHTML = BUREAU.filter(m => m.tel).map(m => `
+  cd.innerHTML = membres.filter(m => m.tel).map(m => `
     <p><b>${m.role} — ${m.nom} :</b> <a href="tel:${m.tel}" class="text-[var(--vert)]">${m.tel}</a></p>`).join('');
 }
 
+/* ===================== CONTENU DU SITE (piloté par l'admin) =====================
+   Le bureau exécutif, le programme et les infos générales (devise, siège,
+   coordonnées bancaires) sont d'abord affichés depuis data.js (valeurs par
+   défaut), puis remplacés en temps réel si l'administrateur les a modifiés
+   depuis le tableau de bord (collection Firestore `contenu`). Ainsi le site
+   fonctionne même avant toute configuration côté admin. */
+function chargerContenuDynamique() {
+  try {
+    db.collection('contenu').doc('bureau').onSnapshot(doc => {
+      const d = doc.data();
+      if (d && Array.isArray(d.membres) && d.membres.length) renderBureau(d.membres);
+    });
+    db.collection('contenu').doc('programme').onSnapshot(doc => {
+      const d = doc.data();
+      if (d && Array.isArray(d.items) && d.items.length) renderProgramme(d.items);
+    });
+    db.collection('contenu').doc('info').onSnapshot(doc => {
+      const d = doc.data();
+      if (!d) return;
+      if (d.devise) {
+        document.getElementById('deviseNav').textContent = d.devise;
+        document.getElementById('deviseHero').textContent = d.devise.toUpperCase();
+        document.getElementById('deviseFooter').textContent = d.devise;
+      }
+      if (d.siege) {
+        document.getElementById('siegeContact').textContent = d.siege;
+        document.getElementById('siegeFooter').textContent = d.siege;
+      }
+      if (d.iban) document.getElementById('ibanVirement').textContent = d.iban;
+    });
+  } catch (err) { console.error('Contenu dynamique :', err); }
+}
 /* ===================== REGIONS / CERCLES ===================== */
 function renderRegions() {
   const rSel = document.getElementById('aRegion');
@@ -256,6 +289,7 @@ function observerFadeIn() { document.querySelectorAll('.fade-in').forEach(el => 
 /* ===================== INIT ===================== */
 renderProgramme();
 renderBureau();
+chargerContenuDynamique();
 renderRegions();
 chargerActualites();
 initChat();

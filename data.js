@@ -23,10 +23,10 @@ const BUREAU = [
   },
   {
     role: "1er Vice-Président",
-    nom: "Dadou Sangaré",
+    nom: "Daouda Sangaré",
     profession: "",
     lieu: "Milan, Italie",
-    tel: ""
+    tel: "00393509393002"
   },
   {
     role: "2e Vice-Président",
@@ -40,14 +40,14 @@ const BUREAU = [
     nom: "Karifa Keita",
     profession: "Fonctionnaire d'État",
     lieu: "Bamako, Mali",
-    tel: ""
+    tel: "0022362090085"
   },
   {
     role: "Secrétaire administratif",
     nom: "Modibo Keita",
     profession: "Gestionnaire",
     lieu: "Bamako-Sebenikoro, Mali",
-    tel: ""
+    tel: "0022376112263"
   },
   {
     role: "Trésorière",
@@ -88,6 +88,14 @@ const REGIONS_MALI = {
    -> Dans Firebase Console > Authentication > Users, crée UN SEUL compte
       avec cet email et le mot de passe admin1985 (ou celui de ton choix). */
 const ADMIN_EMAIL_FIXE = "admin@arm-mali.org";
+
+/* ================== ARM TV — THEMES PRIORITAIRES ================== */
+const THEMES_ARMTV = [
+  "Actualités du Mali", "Actualités de l'AES", "Actualités africaines", "Histoire du Mandé",
+  "Culture malienne", "Traditions et patrimoine", "Tourisme", "Agriculture", "Économie",
+  "Éducation", "Santé", "Sport", "Musique", "Développement local", "Diaspora malienne",
+  "Activités de l'A.R.M"
+];
 
 const PARTY_INFO = {
   nom: "Alliance pour le Rassemblement Malien",
