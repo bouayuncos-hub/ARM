@@ -4,12 +4,12 @@ const LOGO_DATA_URI = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAgAAAAIACAY
    Remplace ces valeurs par celles de TON projet Firebase "arm-mali"
    (Console Firebase > Paramètres du projet > Vos applications > SDK config)     */
 const firebaseConfig = {
-  apiKey: "REMPLACE_MOI",
-  authDomain: "arm-mali.firebaseapp.com",
-  projectId: "arm-mali",
-  storageBucket: "arm-mali.appspot.com",
-  messagingSenderId: "REMPLACE_MOI",
-  appId: "REMPLACE_MOI"
+  apiKey: "AIzaSyBcDKDathrYFPCmgh-b9RGoErGcr0UeoPE",
+  authDomain: "arm-boua.firebaseapp.com",
+  projectId: "arm-boua",
+  storageBucket: "arm-boua.firebasestorage.app",
+  messagingSenderId: "988539942178",
+  appId: "1:988539942178:web:9dab94952ac8ffd936e17b"
 };
 
 /* ================== BUREAU EXECUTIF ================== */
