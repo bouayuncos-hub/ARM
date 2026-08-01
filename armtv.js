@@ -70,21 +70,29 @@ function armtvRenderOnglets() {
   });
 }
 
+let armtvDefilement = null;
 async function armtvInit() {
   const player = document.getElementById('armtvPlayer');
   if (!player) return; // section absente de cette page
   player.addEventListener('ended', armtvJouerSuivant);
 
-  // Playlist programmée
+  // Playlist programmée — chargée par pages (défilement infini) plutôt qu'en un seul bloc
+  const sentinel = document.getElementById('armtvSentinel');
   try {
-    const snap = await db.collection('armtv_videos')
-      .where('statut', '==', 'approuvé')
-      .orderBy('ordre', 'asc')
-      .limit(100).get();
-    armtvPlaylist = snap.docs.map(d => d.data());
-    armtvRenderOnglets();
-    armtvRenderPlaylist();
-    if (armtvPlaylist.length) armtvChargerSource(armtvPlaylist[0]);
+    armtvDefilement = creerDefilementInfini({
+      collection: db.collection('armtv_videos').where('statut', '==', 'approuvé'),
+      orderBy: ['ordre', 'asc'],
+      pageSize: 20,
+      sentinel,
+      onPage: (docs, premierePage) => {
+        if (premierePage) armtvPlaylist = [];
+        armtvPlaylist.push(...docs.map(d => d.data()));
+        armtvRenderOnglets();
+        armtvRenderPlaylist();
+        if (premierePage && armtvPlaylist.length) armtvChargerSource(armtvPlaylist[0]);
+      }
+    });
+    armtvDefilement.demarrer();
   } catch (err) { console.error('ARM TV playlist :', err); }
 
   // Mode direct
