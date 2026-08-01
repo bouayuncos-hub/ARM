@@ -30,7 +30,7 @@ function renderBureau(liste) {
   const membres = liste || BUREAU;
   const grid = document.getElementById('bureauGrid');
   grid.innerHTML = membres.map(m => `
-    <div class="card p-5 fade-in">
+    <div class="card p-5 fade-in bureau-card">
       <p class="text-xs font-bold text-[var(--or)] uppercase mb-1">${m.role}</p>
       <p class="font-bold text-lg mb-1">${m.nom}</p>
       ${m.profession ? `<p class="text-sm text-gray-500 mb-1">${m.profession}</p>` : ''}
@@ -188,27 +188,42 @@ document.getElementById('formAdhesion').addEventListener('submit', async (e) => 
   e.target.reset();
 });
 
-/* ===================== ACTUALITES & EVENEMENTS ===================== */
-async function chargerActualites() {
+/* ===================== ACTUALITES & EVENEMENTS (défilement infini + recherche + partage) ===================== */
+let actualitesDefilement = null;
+function creerCarteActualite(a) {
+  const urlPartage = location.href.split('#')[0] + '#actualites';
+  return `
+    <div class="card overflow-hidden fade-in actu-card">
+      ${a.image ? `<img src="${a.image}" class="w-full h-40 object-cover">` : ''}
+      <div class="p-4">
+        <p class="text-xs text-gray-400 mb-1">${a.date || ''}</p>
+        <h3 class="font-bold mb-2">${a.titre || ''}</h3>
+        <p class="text-sm text-gray-500 mb-2">${(a.contenu || '').slice(0, 140)}${(a.contenu || '').length > 140 ? '…' : ''}</p>
+        ${a.lienVisio ? `<a href="${a.lienVisio}" target="_blank" class="text-sm font-bold text-[var(--vert)]">🎥 Rejoindre la visioconférence</a>` : ''}
+        ${a.lieu ? `<p class="text-xs text-gray-400 mt-1">📍 ${a.lieu}</p>` : ''}
+        <button type="button" class="share-btn mt-3 text-xs font-bold text-gray-400 hover:text-[var(--vert)]"
+          data-titre="${(a.titre || '').replace(/"/g, '&quot;')}" data-url="${urlPartage}">📤 Partager</button>
+      </div>
+    </div>`;
+}
+function chargerActualites() {
   const grid = document.getElementById('actualitesGrid');
+  const sentinel = document.getElementById('actualitesSentinel');
   try {
-    const snap = await db.collection('actualites').orderBy('createdAt', 'desc').limit(12).get();
-    if (snap.empty) { grid.innerHTML = '<p class="text-gray-400 text-sm">Aucune actualité pour le moment.</p>'; return; }
-    grid.innerHTML = '';
-    snap.forEach(doc => {
-      const a = doc.data();
-      grid.insertAdjacentHTML('beforeend', `
-        <div class="card overflow-hidden fade-in">
-          ${a.image ? `<img src="${a.image}" class="w-full h-40 object-cover">` : ''}
-          <div class="p-4">
-            <p class="text-xs text-gray-400 mb-1">${a.date || ''}</p>
-            <h3 class="font-bold mb-2">${a.titre || ''}</h3>
-            <p class="text-sm text-gray-500 mb-2">${(a.contenu || '').slice(0, 140)}${(a.contenu || '').length > 140 ? '…' : ''}</p>
-            ${a.lienVisio ? `<a href="${a.lienVisio}" target="_blank" class="text-sm font-bold text-[var(--vert)]">🎥 Rejoindre la visioconférence</a>` : ''}
-            ${a.lieu ? `<p class="text-xs text-gray-400 mt-1">📍 ${a.lieu}</p>` : ''}
-          </div>
-        </div>`);
+    actualitesDefilement = creerDefilementInfini({
+      collection: db.collection('actualites'),
+      orderBy: ['createdAt', 'desc'],
+      pageSize: 9,
+      sentinel,
+      onPage: (docs, premierePage) => {
+        if (premierePage) grid.innerHTML = '';
+        if (premierePage && !docs.length) { grid.innerHTML = '<p class="text-gray-400 text-sm">Aucune actualité pour le moment.</p>'; return; }
+        docs.forEach(doc => grid.insertAdjacentHTML('beforeend', creerCarteActualite(doc.data())));
+        observerFadeIn();
+        if (typeof filtrerActualites === 'function') filtrerActualites();
+      }
     });
+    actualitesDefilement.demarrer();
   } catch (err) {
     grid.innerHTML = '<p class="text-gray-400 text-sm">Connecte Firebase pour afficher les actualités.</p>';
   }
