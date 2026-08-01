@@ -23,3 +23,23 @@ self.addEventListener('fetch', (e) => {
     }).catch(() => caches.match(e.request))
   );
 });
+
+/* ===================== NOTIFICATIONS PUSH EN ARRIÈRE-PLAN ===================== */
+try {
+  importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
+  importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js');
+  firebase.initializeApp({
+    apiKey: "AIzaSyBcDKDathrYFPCmgh-b9RGoErGcr0UeoPE",
+    authDomain: "arm-boua.firebaseapp.com",
+    projectId: "arm-boua",
+    storageBucket: "arm-boua.firebasestorage.app",
+    messagingSenderId: "988539942178",
+    appId: "1:988539942178:web:9dab94952ac8ffd936e17b"
+  });
+  const messaging = firebase.messaging();
+  messaging.onBackgroundMessage((payload) => {
+    const titre = (payload.notification && payload.notification.title) || 'A.R.M';
+    const corps = (payload.notification && payload.notification.body) || '';
+    self.registration.showNotification(titre, { body: corps, icon: 'icon-192.png' });
+  });
+} catch (err) { /* Cloud Messaging pas encore configuré : sans effet sur le reste du site */ }
