@@ -89,6 +89,12 @@ const REGIONS_MALI = {
       avec cet email et le mot de passe admin1985 (ou celui de ton choix). */
 const ADMIN_EMAIL_FIXE = "admin@arm-mali.org";
 
+/* Clé publique VAPID pour les notifications push (Firebase Cloud Messaging).
+   À générer une seule fois dans Firebase Console > Paramètres du projet >
+   Cloud Messaging > Certificats push web > "Générer une paire de clés".
+   Tant qu'elle est vide, le bouton 🔔 reste automatiquement masqué. */
+const VAPID_KEY = "";
+
 /* ================== ARM TV — THEMES PRIORITAIRES ================== */
 const THEMES_ARMTV = [
   "Actualités du Mali", "Actualités de l'AES", "Actualités africaines", "Histoire du Mandé",
