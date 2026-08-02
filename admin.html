@@ -1,216 +1,742 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Administration — A.R.M</title>
-<meta name="robots" content="noindex, nofollow">
-<link rel="icon" href="logo.png">
-<script src="https://cdn.tailwindcss.com"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-<style>
-  :root{--vert:#0f7a3d;--or:#f4b400;--nuit:#0b1f14;}
-  body{font-family:'Segoe UI',Arial,sans-serif;background:#f2f3f1;}
-  .tab-btn.active{background:var(--vert);color:#fff;}
-  .card{background:#fff;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.06);}
-  table{width:100%;border-collapse:collapse;font-size:.85rem;}
-  th,td{padding:8px 10px;border-bottom:1px solid #eee;text-align:left;vertical-align:top;}
-  th{background:#f7f7f7;position:sticky;top:0;}
-  .pill{font-size:.7rem;padding:2px 8px;border-radius:999px;}
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>A.R.M — Tableau de Bord Administrateur</title>
+  <meta name="description" content="Tableau de bord administrateur pour A.R.M">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" href="logo.png">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
+  <style>
+    :root {
+      --vert: #0f7a3d;
+      --or: #f4b400;
+      --rouge: #c1272d;
+      --nuit: #0b1f14;
+      --bg: #f7f8f6;
+      --card-bg: #fff;
+      --text: #1f2937;
+      --text-soft: #6b7280;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    header {
+      background: linear-gradient(135deg, var(--nuit), var(--vert));
+      color: #fff;
+      padding: 1.5rem;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      position: sticky;
+      top: 0;
+      z-index: 30;
+    }
+
+    .header-content {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 2rem;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .header-title { font-size: 1.8rem; font-weight: bold; }
+    .header-subtitle { font-size: 0.9rem; opacity: 0.9; }
+
+    .container { max-width: 1400px; margin: 0 auto; padding: 2rem 1rem; }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .stat-card {
+      background: white;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      border-left: 4px solid var(--vert);
+      transition: transform 0.3s, box-shadow 0.3s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 16px rgba(0,0,0,0.12);
+    }
+
+    .stat-value {
+      font-size: 2.5rem;
+      font-weight: bold;
+      color: var(--vert);
+      margin: 0.5rem 0;
+    }
+
+    .stat-label {
+      font-size: 0.9rem;
+      color: var(--text-soft);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .tab-nav {
+      display: flex;
+      gap: 0.5rem;
+      border-bottom: 2px solid #e5e7eb;
+      margin: 2rem 0 1rem;
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .tab-btn {
+      padding: 1rem 1.5rem;
+      border: none;
+      background: transparent;
+      color: var(--text-soft);
+      cursor: pointer;
+      font-weight: 500;
+      transition: all 0.3s;
+      border-bottom: 3px solid transparent;
+      white-space: nowrap;
+    }
+
+    .tab-btn:hover {
+      color: var(--vert);
+    }
+
+    .tab-btn.active {
+      color: var(--vert);
+      border-bottom-color: var(--vert);
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+      animation: fadeIn 0.3s ease-in;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      color: var(--text);
+    }
+
+    input, select, textarea {
+      width: 100%;
+      padding: 0.75rem;
+      border: 1px solid #d1d5db;
+      border-radius: 8px;
+      font-family: inherit;
+      font-size: 1rem;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: var(--vert);
+      box-shadow: 0 0 0 3px rgba(15, 122, 61, 0.1);
+    }
+
+    input.is-valid {
+      border-color: #10b981;
+      background-color: #f0fdf4;
+    }
+
+    input.is-invalid {
+      border-color: #ef4444;
+      background-color: #fef2f2;
+    }
+
+    .btn {
+      padding: 0.75rem 1.5rem;
+      border: none;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      font-size: 1rem;
+    }
+
+    .btn-primary {
+      background: var(--vert);
+      color: white;
+    }
+
+    .btn-primary:hover {
+      background: #0c5f30;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(15, 122, 61, 0.3);
+    }
+
+    .btn-primary:active {
+      transform: translateY(0);
+    }
+
+    .btn-secondary {
+      background: #f3f4f6;
+      color: var(--text);
+    }
+
+    .btn-secondary:hover {
+      background: #e5e7eb;
+    }
+
+    .btn-danger {
+      background: var(--rouge);
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background: #a01e25;
+    }
+
+    .btn-small {
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    thead {
+      background: #f9fafb;
+      border-bottom: 2px solid #e5e7eb;
+    }
+
+    th {
+      padding: 1rem;
+      text-align: left;
+      font-weight: 600;
+      color: var(--text);
+      font-size: 0.9rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    td {
+      padding: 1rem;
+      border-bottom: 1px solid #f3f4f6;
+      font-size: 0.95rem;
+    }
+
+    tbody tr:hover {
+      background: #f9fafb;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 0.35rem 0.85rem;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .pill-success { background: #d1fae5; color: #065f46; }
+    .pill-warning { background: #fef3c7; color: #92400e; }
+    .pill-danger { background: #fee2e2; color: #991b1b; }
+
+    .card {
+      background: white;
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      margin-bottom: 1.5rem;
+    }
+
+    .alert {
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      display: none;
+    }
+
+    .alert.show {
+      display: block;
+    }
+
+    .alert-success {
+      background: #d1fae5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+    }
+
+    .alert-danger {
+      background: #fee2e2;
+      color: #991b1b;
+      border: 1px solid #fecaca;
+    }
+
+    .loader {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid #f3f4f6;
+      border-top-color: var(--vert);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    @media (max-width: 768px) {
+      .header-content {
+        flex-direction: column;
+        gap: 1rem;
+        text-align: center;
+      }
+
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .container {
+        padding: 1rem;
+      }
+
+      .tab-nav {
+        overflow-x: auto;
+      }
+
+      table {
+        font-size: 0.85rem;
+      }
+
+      th, td {
+        padding: 0.75rem 0.5rem;
+      }
+    }
+  </style>
 </head>
 <body>
-
-<!-- ===== LOGIN ===== -->
-<div id="loginScreen" class="min-h-screen flex items-center justify-center px-4" style="background:linear-gradient(135deg,var(--nuit),var(--vert));">
-  <form id="loginForm" class="bg-white rounded-2xl p-8 w-full max-w-sm space-y-4 shadow-xl">
-    <div class="text-center mb-2">
-      <img class="arm-logo w-16 h-16 rounded-full object-cover border-2 border-[var(--vert)] mx-auto mb-3" alt="Logo A.R.M">
-      <h1 class="font-bold text-lg">Administration A.R.M</h1>
-      <p class="text-xs text-gray-400">Accès réservé aux administrateurs</p>
+  <!-- ÉCRAN DE CONNEXION -->
+  <div id="loginScreen" class="min-h-screen flex items-center justify-center px-4" style="background: linear-gradient(135deg, var(--nuit), var(--vert));">
+    <div class="card" style="max-width: 400px; width: 100%;">
+      <div class="text-center mb-8">
+        <img class="arm-logo w-16 h-16 rounded-full object-cover border-2 border-[var(--vert)] mx-auto mb-4" alt="Logo A.R.M">
+        <h1 class="text-2xl font-bold mb-2" style="color: var(--vert);">A.R.M</h1>
+        <p class="text-sm text-gray-500">Tableau de Bord Administrateur</p>
+      </div>
+      <form id="loginForm" class="space-y-4">
+        <div class="form-group">
+          <label>Mot de passe administrateur</label>
+          <input type="password" id="loginPass" placeholder="Entrez votre mot de passe" required>
+        </div>
+        <button type="submit" class="btn btn-primary w-full">Se connecter</button>
+        <div id="loginErr" class="alert alert-danger"></div>
+      </form>
     </div>
-    <input required id="loginPass" type="password" placeholder="Mot de passe administrateur" class="w-full border rounded-lg px-3 py-2 text-center tracking-widest">
-    <button class="w-full py-3 rounded-lg font-bold text-white" style="background:var(--vert);">Se connecter</button>
-    <p id="loginErr" class="hidden text-red-600 text-xs text-center"></p>
-  </form>
-</div>
-
-<!-- ===== DASHBOARD ===== -->
-<div id="dashboard" class="hidden">
-  <header class="bg-white shadow-sm sticky top-0 z-30 flex items-center justify-between px-4 py-3">
-    <div class="flex items-center gap-2">
-      <img class="arm-logo w-9 h-9 rounded-full object-cover border border-[var(--vert)]" alt="Logo A.R.M">
-      <span class="font-bold">Tableau de bord</span>
-    </div>
-    <div class="flex items-center gap-3 text-sm">
-      <button id="logoutBtn" class="text-red-600 font-bold">Déconnexion</button>
-    </div>
-  </header>
-
-  <div class="max-w-7xl mx-auto p-4">
-    <div class="flex gap-2 overflow-x-auto mb-6 pb-1" id="tabs">
-      <button data-tab="stats" class="tab-btn active px-4 py-2 rounded-full font-bold text-sm whitespace-nowrap">📊 Statistiques</button>
-      <button data-tab="adhesions" class="tab-btn px-4 py-2 rounded-full font-bold text-sm bg-gray-200 whitespace-nowrap">🧑‍🤝‍🧑 Adhésions</button>
-      <button data-tab="dons" class="tab-btn px-4 py-2 rounded-full font-bold text-sm bg-gray-200 whitespace-nowrap">💶 Dons</button>
-      <button data-tab="actualites" class="tab-btn px-4 py-2 rounded-full font-bold text-sm bg-gray-200 whitespace-nowrap">📰 Actualités</button>
-      <button data-tab="evenements" class="tab-btn px-4 py-2 rounded-full font-bold text-sm bg-gray-200 whitespace-nowrap">📅 Événements</button>
-      <button data-tab="messages" class="tab-btn px-4 py-2 rounded-full font-bold text-sm bg-gray-200 whitespace-nowrap">✉️ Messages</button>
-      <button data-tab="chat" class="tab-btn px-4 py-2 rounded-full font-bold text-sm bg-gray-200 whitespace-nowrap">💬 Chat</button>
-      <button data-tab="galerie" class="tab-btn px-4 py-2 rounded-full font-bold text-sm bg-gray-200 whitespace-nowrap">🖼️ Galerie médias</button>
-      <button data-tab="armtv" class="tab-btn px-4 py-2 rounded-full font-bold text-sm bg-gray-200 whitespace-nowrap">📺 ARM TV</button>
-      <button data-tab="contenu" class="tab-btn px-4 py-2 rounded-full font-bold text-sm bg-gray-200 whitespace-nowrap">🛠️ Contenu du site</button>
-    </div>
-
-    <!-- STATS -->
-    <section id="tab-stats" class="tab-content grid md:grid-cols-4 gap-4">
-      <div class="card p-4 text-center"><p class="text-3xl font-extrabold" id="statAdh">0</p><p class="text-xs text-gray-500">Adhésions</p></div>
-      <div class="card p-4 text-center"><p class="text-3xl font-extrabold" id="statDons">0 €</p><p class="text-xs text-gray-500">Total des dons</p></div>
-      <div class="card p-4 text-center"><p class="text-3xl font-extrabold" id="statMsg">0</p><p class="text-xs text-gray-500">Messages reçus</p></div>
-      <div class="card p-4 text-center"><p class="text-3xl font-extrabold" id="statEv">0</p><p class="text-xs text-gray-500">Événements à venir</p></div>
-      <div class="card p-4 md:col-span-4"><canvas id="chartAdh" height="90"></canvas></div>
-    </section>
-
-    <!-- ADHESIONS -->
-    <section id="tab-adhesions" class="tab-content hidden card p-4 overflow-x-auto">
-      <table><thead><tr><th>Nom</th><th>Tél</th><th>Région</th><th>Cercle</th><th>Statut</th><th>Actions</th></tr></thead>
-      <tbody id="tblAdhesions"></tbody></table>
-      <div id="sentinelAdhesions" class="text-center text-xs text-gray-400 py-3">Chargement…</div>
-    </section>
-
-    <!-- DONS -->
-    <section id="tab-dons" class="tab-content hidden card p-4 overflow-x-auto">
-      <table><thead><tr><th>Montant</th><th>Méthode</th><th>Nom/Réf.</th><th>Statut</th><th>Actions</th></tr></thead>
-      <tbody id="tblDons"></tbody></table>
-      <div id="sentinelDons" class="text-center text-xs text-gray-400 py-3">Chargement…</div>
-    </section>
-
-    <!-- ACTUALITES -->
-    <section id="tab-actualites" class="tab-content hidden">
-      <div class="card p-4 mb-4">
-        <h3 class="font-bold mb-3">Publier une actualité / un événement avec visio</h3>
-        <form id="formActu" class="grid md:grid-cols-2 gap-3">
-          <input required id="actuTitre" placeholder="Titre" class="border rounded-lg px-3 py-2">
-          <input id="actuDate" type="date" class="border rounded-lg px-3 py-2">
-          <input id="actuImage" placeholder="URL de l'image (optionnel)" class="border rounded-lg px-3 py-2 md:col-span-2">
-          <input id="actuLien" placeholder="Lien visioconférence (Zoom/Meet, optionnel)" class="border rounded-lg px-3 py-2 md:col-span-2">
-          <input id="actuLieu" placeholder="Lieu (optionnel)" class="border rounded-lg px-3 py-2 md:col-span-2">
-          <textarea required id="actuContenu" placeholder="Contenu" rows="3" class="border rounded-lg px-3 py-2 md:col-span-2"></textarea>
-          <button id="actuBtnSubmit" class="md:col-span-2 py-2 rounded-lg font-bold text-white" style="background:var(--vert);">Publier</button>
-        </form>
-      </div>
-      <div id="listeActu" class="space-y-3"></div>
-    </section>
-
-    <!-- EVENEMENTS (alias vers actualités avec date à venir) -->
-    <section id="tab-evenements" class="tab-content hidden">
-      <p class="text-sm text-gray-500 mb-3">Les événements sont gérés depuis l'onglet Actualités (renseigner une date et éventuellement un lien de visioconférence).</p>
-      <div id="listeEv" class="space-y-3"></div>
-    </section>
-
-    <!-- MESSAGES -->
-    <section id="tab-messages" class="tab-content hidden card p-4 overflow-x-auto">
-      <table><thead><tr><th>Nom</th><th>Email</th><th>Sujet</th><th>Message</th><th>Statut</th></tr></thead>
-      <tbody id="tblMessages"></tbody></table>
-    </section>
-
-    <!-- CHAT -->
-    <section id="tab-chat" class="tab-content hidden card p-4 overflow-x-auto">
-      <table><thead><tr><th>Nom</th><th>Message</th><th>Date</th><th></th></tr></thead>
-      <tbody id="tblChat"></tbody></table>
-      <div id="sentinelChat" class="text-center text-xs text-gray-400 py-3">Chargement…</div>
-    </section>
-
-    <!-- GALERIE MEDIAS -->
-    <section id="tab-galerie" class="tab-content hidden">
-      <div class="card p-4 mb-4">
-        <h3 class="font-bold mb-3">Ajouter des médias (compression automatique avant envoi)</h3>
-        <input id="galerieInput" type="file" accept="image/*" multiple class="block w-full text-sm mb-2">
-        <div id="galerieProgress" class="hidden text-xs text-gray-500 mb-2"></div>
-      </div>
-      <div id="galerieGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3"></div>
-      <div id="sentinelGalerie" class="text-center text-xs text-gray-400 py-3">Chargement…</div>
-    </section>
-
-    <!-- ARM TV -->
-    <section id="tab-armtv" class="tab-content hidden">
-      <div class="card p-4 mb-4">
-        <h3 class="font-bold mb-1">🔴 Diffusion en direct</h3>
-        <p class="text-xs text-gray-400 mb-3">Colle ici l'URL du flux HLS (.m3u8) fourni par ton prestataire de streaming (ex. Cloudflare Stream) lors d'un événement en direct.</p>
-        <form id="formDirect" class="grid md:grid-cols-3 gap-3">
-          <input id="directTitre" placeholder="Titre du direct" class="border rounded-lg px-3 py-2 md:col-span-1">
-          <input id="directUrl" placeholder="URL du flux (.m3u8)" class="border rounded-lg px-3 py-2 md:col-span-2">
-          <button type="submit" data-on="true" class="py-2 rounded-lg font-bold text-white bg-red-600">🔴 Démarrer le direct</button>
-          <button type="submit" data-on="false" class="py-2 rounded-lg font-bold text-white bg-gray-500">⏹ Arrêter le direct</button>
-        </form>
-      </div>
-
-      <div class="card p-4 mb-4">
-        <h3 class="font-bold mb-3">Ajouter une vidéo à la médiathèque / playlist</h3>
-        <form id="formArmtv" class="grid md:grid-cols-2 gap-3">
-          <input required id="tvTitre" placeholder="Titre" class="border rounded-lg px-3 py-2 md:col-span-2">
-          <select id="tvTheme" class="border rounded-lg px-3 py-2"></select>
-          <input id="tvOrdre" type="number" placeholder="Ordre dans la playlist (0, 1, 2…)" class="border rounded-lg px-3 py-2">
-          <input required id="tvUrlVideo" placeholder="URL de la vidéo (.mp4 ou .m3u8)" class="border rounded-lg px-3 py-2 md:col-span-2">
-          <input id="tvMiniature" placeholder="URL de la miniature (optionnel)" class="border rounded-lg px-3 py-2 md:col-span-2">
-          <textarea id="tvDescription" placeholder="Description" rows="2" class="border rounded-lg px-3 py-2 md:col-span-2"></textarea>
-          <button class="md:col-span-2 py-2 rounded-lg font-bold text-white" style="background:var(--vert);">Ajouter (statut : en attente d'approbation)</button>
-        </form>
-      </div>
-
-      <div id="listeArmtv" class="space-y-3"></div>
-      <div id="sentinelArmtv" class="text-center text-xs text-gray-400 py-3">Chargement…</div>
-    </section>
-
-    <!-- CONTENU DU SITE -->
-    <section id="tab-contenu" class="tab-content hidden space-y-6">
-      <div class="card p-4">
-        <h3 class="font-bold mb-3">Infos générales</h3>
-        <form id="formInfo" class="grid md:grid-cols-3 gap-3">
-          <input id="infoDevise" placeholder="Devise du parti" class="border rounded-lg px-3 py-2">
-          <input id="infoSiege" placeholder="Adresse du siège" class="border rounded-lg px-3 py-2">
-          <input id="infoIban" placeholder="IBAN / N° compte BMS" class="border rounded-lg px-3 py-2">
-          <button class="md:col-span-3 py-2 rounded-lg font-bold text-white" style="background:var(--vert);">Enregistrer</button>
-        </form>
-      </div>
-
-      <div class="card p-4">
-        <h3 class="font-bold mb-3">Bureau exécutif</h3>
-        <form id="formBureauMembre" class="grid md:grid-cols-2 gap-3 mb-4">
-          <input type="hidden" id="bmIndex" value="-1">
-          <input required id="bmRole" placeholder="Rôle (ex: Président)" class="border rounded-lg px-3 py-2">
-          <input required id="bmNom" placeholder="Nom complet" class="border rounded-lg px-3 py-2">
-          <input id="bmProfession" placeholder="Profession (optionnel)" class="border rounded-lg px-3 py-2">
-          <input id="bmLieu" placeholder="Lieu (optionnel)" class="border rounded-lg px-3 py-2">
-          <input id="bmTel" placeholder="Téléphone (optionnel)" class="border rounded-lg px-3 py-2 md:col-span-2">
-          <button id="bmBtnSubmit" class="py-2 rounded-lg font-bold text-white" style="background:var(--vert);">Ajouter au bureau</button>
-          <button type="button" id="bmBtnAnnuler" class="hidden py-2 rounded-lg font-bold bg-gray-200">Annuler la modification</button>
-        </form>
-        <div id="listeBureau" class="space-y-2"></div>
-      </div>
-
-      <div class="card p-4">
-        <h3 class="font-bold mb-3">Programme politique</h3>
-        <form id="formProgrammeItem" class="grid md:grid-cols-4 gap-3 mb-4">
-          <input type="hidden" id="piIndex" value="-1">
-          <input required id="piIcone" placeholder="Émoji (ex: 📚)" class="border rounded-lg px-3 py-2">
-          <input required id="piTitre" placeholder="Titre" class="border rounded-lg px-3 py-2">
-          <input required id="piTexte" placeholder="Description" class="border rounded-lg px-3 py-2 md:col-span-2">
-          <button id="piBtnSubmit" class="py-2 rounded-lg font-bold text-white" style="background:var(--vert);">Ajouter au programme</button>
-          <button type="button" id="piBtnAnnuler" class="hidden py-2 rounded-lg font-bold bg-gray-200">Annuler la modification</button>
-        </form>
-        <div id="listeProgramme" class="space-y-2"></div>
-      </div>
-    </section>
   </div>
-</div>
 
-<script src="data.js"></script>
-<script src="infinite-scroll.js"></script>
-<script src="media-gallery.js"></script>
-<script src="admin.js"></script>
+  <!-- TABLEAU DE BORD -->
+  <div id="dashboard" class="hidden">
+    <!-- EN-TÊTE -->
+    <header>
+      <div class="header-content">
+        <div>
+          <div class="header-title">🎯 A.R.M Tableau de Bord</div>
+          <div class="header-subtitle">Gestion complète du site et de la communauté</div>
+        </div>
+        <button id="logoutBtn" class="btn btn-secondary">🚪 Déconnexion</button>
+      </div>
+    </header>
+
+    <div class="container">
+      <!-- STATISTIQUES RAPIDES -->
+      <div class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-label">👥 Adhésions</div>
+          <div class="stat-value" id="statAdh">0</div>
+          <div style="font-size: 0.85rem; color: var(--text-soft);">Membres inscrits</div>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--or);">
+          <div class="stat-label">💰 Dons</div>
+          <div class="stat-value" id="statDons" style="color: var(--or);">0 €</div>
+          <div style="font-size: 0.85rem; color: var(--text-soft);">Total collecté</div>
+        </div>
+        <div class="stat-card" style="border-left-color: var(--rouge);">
+          <div class="stat-label">💬 Messages</div>
+          <div class="stat-value" id="statMsg" style="color: var(--rouge);">0</div>
+          <div style="font-size: 0.85rem; color: var(--text-soft);">Reçus</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">🗓️ Événements</div>
+          <div class="stat-value" id="statEv">0</div>
+          <div style="font-size: 0.85rem; color: var(--text-soft);">À venir</div>
+        </div>
+      </div>
+
+      <!-- GRAPHIQUE ANALYTIQUE -->
+      <div class="card">
+        <h2 style="font-size: 1.3rem; margin-bottom: 1rem; color: var(--vert); font-weight: bold;">📊 Activité Globale</h2>
+        <canvas id="chartAdh" style="max-height: 300px;"></canvas>
+      </div>
+
+      <!-- ONGLETS PRINCIPAUX -->
+      <div class="tab-nav">
+        <button class="tab-btn active" data-tab="adhesions">👥 Adhésions</button>
+        <button class="tab-btn" data-tab="dons">💰 Dons</button>
+        <button class="tab-btn" data-tab="messages">💬 Messages</button>
+        <button class="tab-btn" data-tab="chat">💭 Chat Public</button>
+        <button class="tab-btn" data-tab="actualites">📰 Actualités</button>
+        <button class="tab-btn" data-tab="armtv">📺 ARM TV</button>
+        <button class="tab-btn" data-tab="galerie">🖼️ Galerie</button>
+        <button class="tab-btn" data-tab="contenu">🛠️ Contenu</button>
+        <button class="tab-btn" data-tab="export">📥 Export</button>
+      </div>
+
+      <!-- ONGLET ADHÉSIONS -->
+      <div id="tab-adhesions" class="tab-content active">
+        <div class="card">
+          <h2 style="font-size: 1.3rem; margin-bottom: 1rem; font-weight: bold;">👥 Gestion des Adhésions</h2>
+          <div style="overflow-x: auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nom & Email</th>
+                  <th>Téléphone</th>
+                  <th>Région</th>
+                  <th>Cercle</th>
+                  <th>Statut</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tblAdhesions"></tbody>
+            </table>
+          </div>
+          <div id="sentinelAdhesions" style="text-align: center; padding: 2rem; color: var(--text-soft); font-size: 0.9rem;">Chargement...</div>
+        </div>
+      </div>
+
+      <!-- ONGLET DONS -->
+      <div id="tab-dons" class="tab-content">
+        <div class="card">
+          <h2 style="font-size: 1.3rem; margin-bottom: 1rem; font-weight: bold;">💰 Gestion des Dons</h2>
+          <div style="overflow-x: auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Montant</th>
+                  <th>Méthode</th>
+                  <th>Donateur & Référence</th>
+                  <th>Statut</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tblDons"></tbody>
+            </table>
+          </div>
+          <div id="sentinelDons" style="text-align: center; padding: 2rem; color: var(--text-soft); font-size: 0.9rem;">Chargement...</div>
+        </div>
+      </div>
+
+      <!-- ONGLET MESSAGES -->
+      <div id="tab-messages" class="tab-content">
+        <div class="card">
+          <h2 style="font-size: 1.3rem; margin-bottom: 1rem; font-weight: bold;">💬 Messages de Contact</h2>
+          <div style="overflow-x: auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Nom</th>
+                  <th>Email</th>
+                  <th>Sujet</th>
+                  <th>Message</th>
+                  <th>Statut</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tblMessages"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ONGLET CHAT -->
+      <div id="tab-chat" class="tab-content">
+        <div class="card">
+          <h2 style="font-size: 1.3rem; margin-bottom: 1rem; font-weight: bold;">💭 Modération du Chat Public</h2>
+          <div style="overflow-x: auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Utilisateur</th>
+                  <th>Message</th>
+                  <th>Date & Heure</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tblChat"></tbody>
+            </table>
+          </div>
+          <div id="sentinelChat" style="text-align: center; padding: 2rem; color: var(--text-soft); font-size: 0.9rem;">Chargement...</div>
+        </div>
+      </div>
+
+      <!-- ONGLET ACTUALITÉS -->
+      <div id="tab-actualites" class="tab-content">
+        <div class="card">
+          <h2 style="font-size: 1.3rem; margin-bottom: 1rem; font-weight: bold;">📰 Publier une Actualité</h2>
+          <form id="formActu" class="space-y-4">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label>Titre</label>
+                <input type="text" id="actuTitre" required>
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label>Date</label>
+                <input type="date" id="actuDate">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Lieu (optionnel)</label>
+              <input type="text" id="actuLieu">
+            </div>
+            <div class="form-group">
+              <label>Image URL (optionnel)</label>
+              <input type="url" id="actuImage">
+            </div>
+            <div class="form-group">
+              <label>Contenu</label>
+              <textarea id="actuContenu" rows="4" required></textarea>
+            </div>
+            <div class="form-group">
+              <label>Lien Visioconférence (optionnel)</label>
+              <input type="url" id="actuLien" placeholder="https://meet.google.com/...">
+            </div>
+            <button type="submit" class="btn btn-primary" id="actuBtnSubmit">Publier l'Actualité</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2 style="font-size: 1.3rem; margin-bottom: 1rem; font-weight: bold;">📋 Actualités Publiées</h2>
+          <div id="listeActu" style="space-y: 1rem;"></div>
+        </div>
+
+        <div class="card">
+          <h2 style="font-size: 1.3rem; margin-bottom: 1rem; font-weight: bold;">🗓️ Événements à Venir</h2>
+          <div id="listeEv" style="space-y: 1rem;"></div>
+        </div>
+      </div>
+
+      <!-- ONGLET ARM TV -->
+      <div id="tab-armtv" class="tab-content">
+        <div class="card">
+          <h2 style="font-size: 1.3rem; margin-bottom: 1rem; font-weight: bold;">🔴 Mode Direct</h2>
+          <form id="formDirect" class="space-y-4">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label>Titre du Direct</label>
+                <input type="text" id="directTitre" placeholder="En direct depuis...">
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label>URL du flux (.m3u8)</label>
+                <input type="url" id="directUrl" placeholder="https://streaming-provider.com/stream.m3u8">
+              </div>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+              <button type="submit" class="btn btn-danger" data-on="true">🔴 Démarrer le Direct</button>
+              <button type="submit" class="btn btn-secondary" data-on="false">⏹️ Arrêter</button>
+            </div>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2 style="font-size: 1.3rem; margin-bottom: 1rem; font-weight: bold;">📹 Ajouter une Vidéo</h2>
+          <form id="formArmtv" class="space-y-4">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label>Titre</label>
+                <input type="text" id="tvTitre" required>
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label>Thème</label>
+                <select id="tvTheme" required></select>
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label>Ordre</label>
+                <input type="number" id="tvOrdre" value="0">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>URL de la Vidéo (.mp4 ou .m3u8)</label>
+              <input type="url" id="tvUrlVideo" required>
+            </div>
+            <div class="form-group">
+              <label>Miniature URL (optionnel)</label>
+              <input type="url" id="tvMiniature">
+            </div>
+            <div class="form-group">
+              <label>Description</label>
+              <textarea id="tvDescription" rows="3"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">Ajouter la Vidéo</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2 style="font-size: 1.3rem; margin-bottom: 1rem; font-weight: bold;">📺 Playlist Vidéos</h2>
+          <div id="listeArmtv"></div>
+          <div id="sentinelArmtv" style="text-align: center; padding: 2rem; color: var(--text-soft); font-size: 0.9rem;">Chargement...</div>
+        </div>
+      </div>
+
+      <!-- ONGLET GALERIE -->
+      <div id="tab-galerie" class="tab-content">
+        <div class="card">
+          <h2 style="font-size: 1.3rem; margin-bottom: 1rem; font-weight: bold;">🖼️ Galerie Médias</h2>
+          <div class="form-group">
+            <label>Importer des Images (PNG, JPG, WebP, GIF)</label>
+            <input type="file" id="galerieInput" accept="image/*" multiple>
+          </div>
+          <div id="galerieProgress" style="margin: 1rem 0; display: none;">
+            <div class="loader"></div> Envoi en cours...
+          </div>
+          <div id="galerieGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 1rem; margin-top: 2rem;"></div>
+          <div id="sentinelGalerie" style="text-align: center; padding: 2rem; color: var(--text-soft); font-size: 0.9rem;"></div>
+        </div>
+      </div>
+
+      <!-- ONGLET CONTENU -->
+      <div id="tab-contenu" class="tab-content">
+        <div class="card">
+          <h2 style="font-size: 1.3rem; margin-bottom: 1rem; font-weight: bold;">ℹ️ Infos Générales</h2>
+          <form id="formInfo" class="space-y-4">
+            <div class="form-group">
+              <label>Devise</label>
+              <input type="text" id="infoDevise" placeholder="Fraternité • Liberté • Égalité">
+            </div>
+            <div class="form-group">
+              <label>Siège du Parti</label>
+              <input type="text" id="infoSiege" placeholder="Sebenikoro, Rue 530, Porte 245, Bamako, Mali">
+            </div>
+            <div class="form-group">
+              <label>IBAN / N° Compte Bancaire</label>
+              <input type="text" id="infoIban" placeholder="XX00 0000 0000 0000 0000 00">
+            </div>
+            <button type="submit" class="btn btn-primary">Enregistrer les Modifications</button>
+          </form>
+        </div>
+
+        <div class="card">
+          <h2 style="font-size: 1.3rem; margin-bottom: 1rem; font-weight: bold;">👔 Bureau Exécutif</h2>
+          <form id="formBureauMembre" class="space-y-4" style="margin-bottom: 2rem;">
+            <input type="hidden" id="bmIndex" value="-1">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label>Rôle</label>
+                <input type="text" id="bmRole" placeholder="Président, Vice-Président..." required>
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label>Nom Complet</label>
+                <input type="text" id="bmNom" required>
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label>Profession</label>
+                <input type="text" id="bmProfession">
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label>Téléphone</label>
+                <input type="tel" id="bmTel">
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Lieu</label>
+              <input type="text" id="bmLieu">
+            </div>
+            <div style="display: flex; gap: 1rem;">
+              <button type="submit" class="btn btn-primary" id="bmBtnSubmit">Ajouter au Bureau</button>
+              <button type="button" class="btn btn-secondary hidden" id="bmBtnAnnuler">Annuler</button>
+            </div>
+          </form>
+          <div id="listeBureau"></div>
+        </div>
+
+        <div class="card">
+          <h2 style="font-size: 1.3rem; margin-bottom: 1rem; font-weight: bold;">📋 Programme Politique</h2>
+          <form id="formProgrammeItem" class="space-y-4" style="margin-bottom: 2rem;">
+            <input type="hidden" id="piIndex" value="-1">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+              <div class="form-group" style="margin-bottom: 0;">
+                <label>Icône</label>
+                <input type="text" id="piIcone" placeholder="🎯" maxlength="2" required>
+              </div>
+              <div class="form-group" style="margin-bottom: 0;">
+                <label>Titre</label>
+                <input type="text" id="piTitre" required>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>Description</label>
+              <textarea id="piTexte" rows="3" required></textarea>
+            </div>
+            <div style="display: flex; gap: 1rem;">
+              <button type="submit" class="btn btn-primary" id="piBtnSubmit">Ajouter au Programme</button>
+              <button type="button" class="btn btn-secondary hidden" id="piBtnAnnuler">Annuler</button>
+            </div>
+          </form>
+          <div id="listeProgramme"></div>
+        </div>
+      </div>
+
+      <!-- ONGLET EXPORT -->
+      <div id="tab-export" class="tab-content">
+        <div class="card">
+          <h2 style="font-size: 1.3rem; margin-bottom: 1rem; font-weight: bold;">📥 Export de Données</h2>
+          <p style="margin-bottom: 1.5rem; color: var(--text-soft);">Téléchargez les données de votre site en format CSV ou JSON pour analyse externe ou sauvegarde.</p>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem;">
+            <button class="btn btn-primary" id="exportAdhesionsCSV">📊 Adhésions (CSV)</button>
+            <button class="btn btn-primary" id="exportDonsCSV">💰 Dons (CSV)</button>
+            <button class="btn btn-primary" id="exportMessagesCSV">💬 Messages (CSV)</button>
+            <button class="btn btn-primary" id="exportActualitesCSV">📰 Actualités (CSV)</button>
+            <button class="btn btn-primary" id="exportToutJSON">📦 Tout Exporter (JSON)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="data.js"></script>
+  <script src="infinite-scroll.js"></script>
+  <script src="media-gallery.js"></script>
+  <script src="advanced-features.js"></script>
+  <script src="admin.js"></script>
 </body>
 </html>
