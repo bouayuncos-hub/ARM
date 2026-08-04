@@ -15,34 +15,40 @@
   var d=window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
   if(t==='dark'||(!t&&d)) document.documentElement.setAttribute('data-theme','dark');
 }catch(e){}})();</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <style>
-  :root{--vert:#0f7a3d;--or:#f4b400;--rouge:#c1272d;--nuit:#0b1f14;--bg:#f7f8f6;--card-bg:#fff;--text:#1f2937;--text-soft:#6b7280;--header-bg:rgba(255,255,255,.95);}
+  :root{--vert:#0f7a3d;--vert-deep:#0a5c2c;--or:#f4b400;--or-deep:#c98f00;--rouge:#c1272d;--nuit:#0b1f14;--bg:#f7f8f6;--card-bg:#fff;--text:#1f2937;--text-soft:#6b7280;--header-bg:rgba(255,255,255,.95);}
   [data-theme="dark"]{--bg:#0b0f0d;--card-bg:#151b17;--text:#e8ebe9;--text-soft:#9aa39d;--header-bg:rgba(11,15,13,.92);--nuit:#000000;}
   html{scroll-behavior:smooth;}
-  body{font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--text)!important;transition:background .3s,color .3s;}
+  body{font-family:'Inter',Arial,sans-serif;background:var(--bg);color:var(--text)!important;transition:background .3s,color .3s;}
+  h1,h2,h3,.font-display{font-family:'Fraunces',Georgia,serif;letter-spacing:-.01em;}
   .flag-bar{height:6px;background:linear-gradient(90deg,#0f7a3d 0 33%,#f4b400 33% 66%,#c1272d 66% 100%);}
-  .btn-primary{background:var(--vert);color:#fff;transition:transform .15s,background .2s;}
-  .btn-primary:hover{background:#0c5f30;}
-  .btn-or{background:var(--or);color:#3a2a00;transition:transform .15s,filter .2s;}
-  .btn-or:hover{filter:brightness(.95);}
+  .btn-primary{background:var(--vert);color:#fff;transition:transform .15s,background .2s,box-shadow .2s;}
+  .btn-primary:hover{background:var(--vert-deep);box-shadow:0 6px 18px rgba(15,122,61,.25);}
+  .btn-or{background:var(--or);color:#3a2a00;transition:transform .15s,filter .2s,box-shadow .2s;}
+  .btn-or:hover{filter:brightness(.97);box-shadow:0 6px 18px rgba(244,180,0,.3);}
   .btn-primary:active,.btn-or:active{transform:scale(.96);}
-  .section-title{position:relative;display:inline-block;}
+  .section-title{position:relative;display:inline-block;font-weight:600;}
   .section-title:after{content:'';position:absolute;left:0;bottom:-8px;width:60px;height:4px;background:var(--or);border-radius:2px;}
-  .card{background:var(--card-bg);color:var(--text);border-radius:14px;box-shadow:0 4px 18px rgba(0,0,0,.06);transition:transform .25s,box-shadow .25s,background .3s;}
-  .card:hover{transform:translateY(-4px);box-shadow:0 10px 26px rgba(0,0,0,.12);}
-  .fade-in{opacity:0;transform:translateY(16px);transition:.6s;}
+  .eyebrow{font-family:'Inter',sans-serif;text-transform:uppercase;letter-spacing:.14em;font-size:11px;font-weight:700;color:var(--or-deep);}
+  [data-theme="dark"] .eyebrow{color:var(--or);}
+  .card{background:var(--card-bg);color:var(--text);border-radius:16px;box-shadow:0 4px 18px rgba(0,0,0,.06);transition:transform .25s,box-shadow .25s,background .3s;}
+  .card:hover{transform:translateY(-4px);box-shadow:0 12px 28px rgba(0,0,0,.1);}
+  .fade-in{opacity:0;transform:translateY(16px);transition:.6s cubic-bezier(.22,1,.36,1);}
   .fade-in.show{opacity:1;transform:none;}
   #chatBox{scrollbar-width:thin;}
   .nav-link{position:relative;}
   .nav-link.active{color:var(--vert);font-weight:600;}
   ::-webkit-scrollbar{width:8px;}
   ::-webkit-scrollbar-thumb{background:#ccc;border-radius:4px;}
-  .counter{font-variant-numeric:tabular-nums;}
+  .counter{font-variant-numeric:tabular-nums;font-family:'Fraunces',Georgia,serif;}
   header{background:var(--header-bg)!important;transition:background .3s;}
   [data-theme="dark"] .bg-white{background:var(--card-bg)!important;}
   [data-theme="dark"] .bg-gray-50{background:#1c2420!important;}
@@ -51,6 +57,26 @@
   [data-theme="dark"] .text-gray-500,[data-theme="dark"] .text-gray-600,[data-theme="dark"] .text-gray-400{color:var(--text-soft)!important;}
   [data-theme="dark"] input,[data-theme="dark"] select,[data-theme="dark"] textarea{background:#1f2a24;color:var(--text);border-color:#2b362f;}
   [data-theme="dark"] #mobileMenu{background:var(--card-bg);}
+  /* Hero : arrivée en cascade */
+  .hero-anim{opacity:0;transform:translateY(14px);animation:heroIn .7s cubic-bezier(.22,1,.36,1) forwards;}
+  @keyframes heroIn{to{opacity:1;transform:none;}}
+  .hero-bg{position:absolute;inset:0;background:
+      radial-gradient(circle at 20% 15%, rgba(244,180,0,.16), transparent 45%),
+      radial-gradient(circle at 85% 80%, rgba(15,122,61,.35), transparent 50%);}
+  /* Organigramme du bureau */
+  .org-tier{display:grid;gap:1.25rem;justify-content:center;}
+  .org-tier + .org-tier{margin-top:2.25rem;position:relative;}
+  .org-tier + .org-tier:before{content:'';position:absolute;top:-1.15rem;left:50%;width:1px;height:1.15rem;background:var(--or);opacity:.5;}
+  .org-card{width:100%;max-width:220px;}
+  /* Étapes d'adhésion */
+  .step-panel{display:none;}
+  .step-panel.active{display:grid;}
+  .step-dot{width:28px;height:28px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:#e5e7eb;color:#6b7280;transition:.25s;}
+  .step-dot.active{background:var(--vert);color:#fff;}
+  .step-dot.done{background:var(--or);color:#3a2a00;}
+  .step-line{flex:1;height:2px;background:#e5e7eb;}
+  [data-theme="dark"] .step-dot{background:#2b362f;color:var(--text-soft);}
+  [data-theme="dark"] .step-line{background:#2b362f;}
   @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important;}}
 </style>
 </head>
@@ -93,15 +119,17 @@
 </header>
 
 <!-- ===== HERO ===== -->
-<section id="accueil" class="relative text-white py-20 px-4 text-center" style="background:linear-gradient(135deg,var(--nuit),var(--vert));">
-  <div class="max-w-3xl mx-auto">
-    <img class="arm-logo w-28 h-28 mx-auto rounded-full border-4 border-[var(--or)] object-cover mb-6 bg-white/10" alt="Logo A.R.M">
-    <h1 class="text-3xl md:text-5xl font-extrabold mb-3">Alliance pour le Rassemblement Malien</h1>
-    <p class="text-lg md:text-xl text-[var(--or)] font-semibold tracking-wide mb-4" id="deviseHero">FRATERNITÉ • LIBERTÉ • ÉGALITÉ</p>
-    <p class="text-gray-200 mb-8">Mouvement pour un Mali uni, fraternel et prospère. Rejoignez-nous où que vous soyez, au pays comme dans la diaspora.</p>
-    <div class="flex flex-wrap justify-center gap-3">
+<section id="accueil" class="relative overflow-hidden text-white py-24 px-4 text-center" style="background:linear-gradient(135deg,var(--nuit),var(--vert-deep));">
+  <div class="hero-bg"></div>
+  <div class="max-w-3xl mx-auto relative">
+    <img class="arm-logo w-28 h-28 mx-auto rounded-full border-4 border-[var(--or)] object-cover mb-6 bg-white/10 hero-anim" style="animation-delay:.05s" alt="Logo A.R.M">
+    <p class="eyebrow text-[var(--or)] mb-3 hero-anim" style="animation-delay:.15s">Parti politique — Mali</p>
+    <h1 class="font-display text-4xl md:text-6xl font-semibold mb-4 hero-anim" style="animation-delay:.25s">Alliance pour le Rassemblement Malien</h1>
+    <p class="text-lg md:text-xl text-[var(--or)] font-semibold tracking-wide mb-4 hero-anim" style="animation-delay:.35s" id="deviseHero">FRATERNITÉ • LIBERTÉ • ÉGALITÉ</p>
+    <p class="text-gray-200 mb-8 hero-anim" style="animation-delay:.45s">Mouvement pour un Mali uni, fraternel et prospère. Rejoignez-nous où que vous soyez, au pays comme dans la diaspora.</p>
+    <div class="flex flex-wrap justify-center gap-3 hero-anim" style="animation-delay:.55s">
       <a href="#adhesion" class="btn-or font-bold px-6 py-3 rounded-full">Adhérer au parti</a>
-      <a href="#dons" class="border-2 border-white px-6 py-3 rounded-full font-bold hover:bg-white hover:text-[var(--vert)]">Faire un don</a>
+      <a href="#dons" class="border-2 border-white px-6 py-3 rounded-full font-bold hover:bg-white hover:text-[var(--vert)] transition">Faire un don</a>
     </div>
   </div>
 </section>
@@ -135,11 +163,12 @@
 <!-- ===== BUREAU EXECUTIF ===== -->
 <section id="bureau" class="py-16 px-4 bg-white">
   <div class="max-w-6xl mx-auto">
-    <div class="flex flex-wrap items-end justify-between gap-4 mb-10">
+    <div class="flex flex-wrap items-end justify-between gap-4 mb-2">
       <h2 class="section-title text-2xl md:text-3xl font-extrabold">Bureau exécutif</h2>
       <input id="rechercheBureau" type="search" placeholder="🔍 Rechercher un membre…" class="border rounded-lg px-3 py-2 text-sm w-full sm:w-64">
     </div>
-    <div id="bureauGrid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+    <p class="text-xs text-gray-400 mb-10">Cliquez sur un membre pour copier son numéro de téléphone.</p>
+    <div id="bureauGrid"></div>
   </div>
 </section>
 
@@ -160,8 +189,9 @@
       <input type="number" id="montantLibre" min="1" class="border rounded-lg px-3 py-2 w-32" placeholder="€">
     </div>
 
-    <div class="flex gap-2 mb-6" id="donTabs">
+    <div class="flex gap-2 mb-6 flex-wrap" id="donTabs">
       <button data-tab="carte" class="donTab flex-1 py-2 rounded-lg font-bold btn-primary">💳 Carte bancaire</button>
+      <button data-tab="mobile" class="donTab flex-1 py-2 rounded-lg font-bold bg-gray-100">📱 Mobile Money</button>
       <button data-tab="virement" class="donTab flex-1 py-2 rounded-lg font-bold bg-gray-100">🏦 Virement BMS Mali</button>
     </div>
 
@@ -177,6 +207,18 @@
       <p class="text-xs text-gray-400">🔒 Paiement sécurisé — traitement simulé côté démonstration. Pour un encaissement réel, connecter un prestataire agréé (Stripe, PayPal ou CB en ligne BMS).</p>
       <button class="btn-primary w-full py-3 rounded-lg font-bold">Faire un don <span id="montantAffiche">de 5 €</span></button>
     </form>
+
+    <!-- Mobile Money -->
+    <div id="formMobileMoney" class="hidden space-y-3">
+      <div class="bg-gray-50 rounded-lg p-4 text-sm space-y-1">
+        <p><b>Orange Money :</b> <span id="omNumero">à renseigner par l'administrateur</span></p>
+        <p><b>Moov Money :</b> <span id="moovNumero">à renseigner par l'administrateur</span></p>
+        <p><b>Wave :</b> <span id="waveNumero">à renseigner par l'administrateur</span></p>
+        <p><b>Nom du bénéficiaire :</b> Alliance pour le Rassemblement Malien</p>
+        <p><b>Référence à indiquer :</b> DON-ARM-<span id="refMobile"></span></p>
+      </div>
+      <button id="btnMobileFait" class="btn-primary w-full py-3 rounded-lg font-bold">J'ai effectué le paiement Mobile Money</button>
+    </div>
 
     <!-- Virement bancaire -->
     <div id="formVirement" class="hidden space-y-3">
@@ -197,18 +239,49 @@
 <section id="adhesion" class="py-16 px-4 bg-white">
   <div class="max-w-3xl mx-auto">
     <h2 class="section-title text-2xl md:text-3xl font-extrabold mb-10">Adhérer au parti</h2>
-    <form id="formAdhesion" class="card p-6 md:p-8 grid sm:grid-cols-2 gap-4">
-      <input required id="aNom" placeholder="Nom" class="border rounded-lg px-3 py-2">
-      <input required id="aPrenom" placeholder="Prénom" class="border rounded-lg px-3 py-2">
-      <input required id="aTel" placeholder="Téléphone" class="border rounded-lg px-3 py-2">
-      <input id="aEmail" type="email" placeholder="Email" class="border rounded-lg px-3 py-2">
-      <input id="aProfession" placeholder="Profession" class="border rounded-lg px-3 py-2">
-      <input id="aPays" placeholder="Pays de résidence" class="border rounded-lg px-3 py-2">
-      <select id="aRegion" class="border rounded-lg px-3 py-2"><option value="">Région</option></select>
-      <select id="aCercle" class="border rounded-lg px-3 py-2"><option value="">Cercle / Commune</option></select>
-      <input id="aQuartier" placeholder="Quartier / Ville" class="border rounded-lg px-3 py-2 sm:col-span-2">
-      <textarea id="aMessage" placeholder="Message (optionnel)" class="border rounded-lg px-3 py-2 sm:col-span-2" rows="3"></textarea>
-      <button class="btn-primary sm:col-span-2 py-3 rounded-lg font-bold">Envoyer ma demande d'adhésion</button>
+
+    <!-- Indicateur d'étapes -->
+    <div class="flex items-center mb-8 max-w-md mx-auto" id="stepIndicator">
+      <div class="step-dot active" data-step="1">1</div>
+      <div class="step-line"></div>
+      <div class="step-dot" data-step="2">2</div>
+      <div class="step-line"></div>
+      <div class="step-dot" data-step="3">3</div>
+    </div>
+
+    <form id="formAdhesion" class="card p-6 md:p-8">
+      <!-- Étape 1 : identité -->
+      <div class="step-panel active sm:grid-cols-2 gap-4" data-step="1">
+        <p class="sm:col-span-2 eyebrow mb-1">Étape 1 — Identité</p>
+        <input required id="aNom" placeholder="Nom" class="border rounded-lg px-3 py-2">
+        <input required id="aPrenom" placeholder="Prénom" class="border rounded-lg px-3 py-2">
+        <input required id="aTel" placeholder="Téléphone" class="border rounded-lg px-3 py-2">
+        <input id="aEmail" type="email" placeholder="Email" class="border rounded-lg px-3 py-2">
+        <input id="aProfession" placeholder="Profession" class="border rounded-lg px-3 py-2 sm:col-span-2">
+      </div>
+
+      <!-- Étape 2 : localisation -->
+      <div class="step-panel sm:grid-cols-2 gap-4" data-step="2">
+        <p class="sm:col-span-2 eyebrow mb-1">Étape 2 — Localisation</p>
+        <input id="aPays" placeholder="Pays de résidence" class="border rounded-lg px-3 py-2">
+        <select id="aRegion" class="border rounded-lg px-3 py-2"><option value="">Région</option></select>
+        <select id="aCercle" class="border rounded-lg px-3 py-2"><option value="">Cercle / Commune</option></select>
+        <input id="aQuartier" placeholder="Quartier / Ville" class="border rounded-lg px-3 py-2">
+      </div>
+
+      <!-- Étape 3 : message + récapitulatif -->
+      <div class="step-panel gap-4" data-step="3">
+        <p class="eyebrow mb-1">Étape 3 — Message & envoi</p>
+        <textarea id="aMessage" placeholder="Message (optionnel)" class="border rounded-lg px-3 py-2" rows="3"></textarea>
+        <div id="adhesionRecap" class="bg-gray-50 rounded-lg p-4 text-sm space-y-1"></div>
+      </div>
+
+      <div class="flex justify-between items-center mt-6 pt-4 border-t">
+        <button type="button" id="stepPrev" class="hidden text-sm font-bold text-gray-500 hover:text-[var(--vert)]">← Précédent</button>
+        <div class="flex-1"></div>
+        <button type="button" id="stepNext" class="btn-primary px-6 py-3 rounded-lg font-bold">Suivant →</button>
+        <button type="submit" id="stepSubmit" class="hidden btn-primary px-6 py-3 rounded-lg font-bold">Envoyer ma demande d'adhésion</button>
+      </div>
     </form>
     <div id="adhesionConfirm" class="hidden mt-4 bg-green-50 border border-green-300 text-green-800 rounded-lg p-4 text-sm max-w-3xl mx-auto"></div>
   </div>

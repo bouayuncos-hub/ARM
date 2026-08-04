@@ -29,14 +29,37 @@ function renderProgramme(liste) {
 function renderBureau(liste) {
   const membres = liste || BUREAU;
   const grid = document.getElementById('bureauGrid');
-  grid.innerHTML = membres.map(m => `
-    <div class="card p-5 fade-in bureau-card">
+
+  // Organigramme par niveaux : le 1er membre (Président) seul en tête,
+  // les 2 suivants (Vice-présidents) au 2e niveau, le reste en dernier niveau.
+  const niveaux = [membres.slice(0, 1), membres.slice(1, 3), membres.slice(3)].filter(n => n.length);
+
+  const carte = (m, i) => `
+    <button type="button" class="card org-card p-5 fade-in bureau-card text-left block w-full" data-tel="${m.tel || ''}" data-nom="${m.nom || ''}">
       <p class="text-xs font-bold text-[var(--or)] uppercase mb-1">${m.role}</p>
       <p class="font-bold text-lg mb-1">${m.nom}</p>
       ${m.profession ? `<p class="text-sm text-gray-500 mb-1">${m.profession}</p>` : ''}
       ${m.lieu ? `<p class="text-sm text-gray-500 mb-2">📍 ${m.lieu}</p>` : ''}
-      ${m.tel ? `<a href="tel:${m.tel}" class="text-sm text-[var(--vert)] font-semibold">☎ ${m.tel}</a>` : ''}
+      ${m.tel ? `<span class="text-sm text-[var(--vert)] font-semibold">☎ ${m.tel}</span>` : ''}
+    </button>`;
+
+  grid.innerHTML = niveaux.map(niveau => `
+    <div class="org-tier" style="grid-template-columns:repeat(${niveau.length},minmax(180px,220px));">
+      ${niveau.map(carte).join('')}
     </div>`).join('');
+
+  grid.querySelectorAll('.bureau-card[data-tel]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const tel = btn.dataset.tel;
+      if (!tel) return;
+      try {
+        await navigator.clipboard.writeText(tel);
+        const original = btn.style.outline;
+        btn.style.outline = '2px solid var(--vert)';
+        setTimeout(() => { btn.style.outline = original; }, 600);
+      } catch (err) { /* presse-papiers indisponible, sans conséquence */ }
+    });
+  });
 
   // Contact section — dirigeants
   const cd = document.getElementById('contactDirigeants');
@@ -108,7 +131,9 @@ document.getElementById('montantLibre').oninput = (e) => {
 };
 function majAffichage() {
   document.getElementById('montantAffiche').textContent = `de ${montantChoisi} €`;
+  window.montantChoisi = montantChoisi; // exposé pour modern.js (onglet Mobile Money)
 }
+window.montantChoisi = montantChoisi;
 
 document.querySelectorAll('.donTab').forEach(t => {
   t.onclick = () => {
