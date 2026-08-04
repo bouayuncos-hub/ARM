@@ -137,10 +137,108 @@ function initNotifications() {
   });
 }
 
+/* ===================== ASSISTANT D'ADHÉSION EN 3 ÉTAPES =====================
+   Les champs gardent leurs IDs d'origine (aNom, aPrenom, …) : la soumission
+   du formulaire dans app.js n'a pas besoin d'être modifiée. Ce module ne
+   gère que la navigation entre étapes, leur validation et le récapitulatif. */
+function initAdhesionWizard() {
+  const form = document.getElementById('formAdhesion');
+  if (!form) return;
+  const panels = Array.from(form.querySelectorAll('.step-panel'));
+  const dots = Array.from(document.querySelectorAll('#stepIndicator .step-dot'));
+  const btnPrev = document.getElementById('stepPrev');
+  const btnNext = document.getElementById('stepNext');
+  const btnSubmit = document.getElementById('stepSubmit');
+  let etape = 1;
+  const total = panels.length;
+
+  function majAffichageEtape() {
+    panels.forEach(p => p.classList.toggle('active', Number(p.dataset.step) === etape));
+    dots.forEach(d => {
+      const n = Number(d.dataset.step);
+      d.classList.toggle('active', n === etape);
+      d.classList.toggle('done', n < etape);
+    });
+    btnPrev.classList.toggle('hidden', etape === 1);
+    btnNext.classList.toggle('hidden', etape === total);
+    btnSubmit.classList.toggle('hidden', etape !== total);
+    if (etape === total) remplirRecap();
+  }
+
+  function etapeValide() {
+    const champs = panels.find(p => Number(p.dataset.step) === etape).querySelectorAll('[required]');
+    for (const champ of champs) { if (!champ.reportValidity()) return false; }
+    return true;
+  }
+
+  function remplirRecap() {
+    const box = document.getElementById('adhesionRecap');
+    if (!box) return;
+    const val = (id) => (document.getElementById(id) || {}).value || '—';
+    box.innerHTML = `
+      <p><b>Nom :</b> ${val('aNom')} ${val('aPrenom')}</p>
+      <p><b>Téléphone :</b> ${val('aTel')}</p>
+      <p><b>Email :</b> ${val('aEmail')}</p>
+      <p><b>Localisation :</b> ${val('aQuartier')}, ${val('aCercle')}, ${val('aRegion')}, ${val('aPays')}</p>`;
+  }
+
+  btnNext.addEventListener('click', () => {
+    if (!etapeValide()) return;
+    etape = Math.min(total, etape + 1);
+    majAffichageEtape();
+  });
+  btnPrev.addEventListener('click', () => {
+    etape = Math.max(1, etape - 1);
+    majAffichageEtape();
+  });
+  // Empêche la validation "Entrée" de sauter directement à l'envoi avant la dernière étape
+  form.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && etape < total) { e.preventDefault(); btnNext.click(); }
+  });
+
+  majAffichageEtape();
+}
+
+/* ===================== ONGLET DE DON — MOBILE MONEY =====================
+   Complète la logique existante des onglets (app.js) pour le 3e onglet
+   sans la modifier : cache/affiche simplement le panneau Mobile Money. */
+function initDonMobileMoney() {
+  const tabs = document.querySelectorAll('.donTab');
+  if (!tabs.length) return;
+  tabs.forEach(t => {
+    t.addEventListener('click', () => {
+      document.getElementById('formMobileMoney').classList.toggle('hidden', t.dataset.tab !== 'mobile');
+      if (t.dataset.tab === 'mobile') {
+        document.getElementById('refMobile').textContent = Date.now().toString().slice(-8);
+      }
+    });
+  });
+  const btn = document.getElementById('btnMobileFait');
+  if (btn) {
+    btn.addEventListener('click', async () => {
+      const ref = 'DON-ARM-' + document.getElementById('refMobile').textContent;
+      try {
+        await db.collection('dons').add({
+          montant: window.montantChoisi || 0, methode: 'mobile_money', reference: ref,
+          statut: 'en attente de confirmation', createdAt: Date.now()
+        });
+        await db.collection('compteurs').doc('global').set(
+          { donsTotal: firebase.firestore.FieldValue.increment(window.montantChoisi || 0) }, { merge: true }
+        );
+      } catch (err) { console.error(err); }
+      const box = document.getElementById('donConfirm');
+      box.classList.remove('hidden');
+      box.innerHTML = `✅ Merci pour votre don de <b>${window.montantChoisi || 0} €</b> ! Référence : <b>${ref}</b>. Un reçu vous sera envoyé après confirmation par l'administrateur.`;
+    });
+  }
+}
+
 /* ===================== INIT ===================== */
 document.addEventListener('DOMContentLoaded', () => {
   initStats();
   initRechercheBureau();
   initRechercheActualites();
   initNotifications();
+  initAdhesionWizard();
+  initDonMobileMoney();
 });
