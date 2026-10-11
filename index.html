@@ -6,373 +6,390 @@
 <title>A.R.M — Alliance pour le Rassemblement Malien</title>
 <meta name="description" content="A.R.M — Alliance pour le Rassemblement Malien. Mouvement pour un Mali uni, fraternel et prospère. Fraternité • Liberté • Égalité.">
 <meta name="theme-color" content="#0f7a3d">
+<meta property="og:title" content="A.R.M — Alliance pour le Rassemblement Malien">
+<meta property="og:description" content="Fraternité • Liberté • Égalité. Rejoignez le rassemblement pour un Mali uni, fraternel et prospère.">
+<meta property="og:image" content="logo.png">
+<meta property="og:type" content="website">
 <link rel="manifest" href="manifest.json">
 <link rel="icon" href="logo.png">
 <link rel="apple-touch-icon" href="logo.png">
-<script>/* Applique le mode sombre avant l'affichage pour éviter le flash */
-(function(){try{
-  var t=localStorage.getItem('arm-theme');
-  var d=window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-  if(t==='dark'||(!t&&d)) document.documentElement.setAttribute('data-theme','dark');
-}catch(e){}})();</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+  /* Thème appliqué avant l'affichage pour éviter le "flash" blanc */
+  (function () {
+    var t = null;
+    try { t = localStorage.getItem('arm-theme'); } catch (e) {}
+    if (!t) t = window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <style>
-  :root{--vert:#0f7a3d;--vert-deep:#0a5c2c;--or:#f4b400;--or-deep:#c98f00;--rouge:#c1272d;--nuit:#0b1f14;--bg:#f7f8f6;--card-bg:#fff;--text:#1f2937;--text-soft:#6b7280;--header-bg:rgba(255,255,255,.95);}
-  [data-theme="dark"]{--bg:#0b0f0d;--card-bg:#151b17;--text:#e8ebe9;--text-soft:#9aa39d;--header-bg:rgba(11,15,13,.92);--nuit:#000000;}
-  html{scroll-behavior:smooth;}
-  body{font-family:'Inter',Arial,sans-serif;background:var(--bg);color:var(--text)!important;transition:background .3s,color .3s;}
-  h1,h2,h3,.font-display{font-family:'Fraunces',Georgia,serif;letter-spacing:-.01em;}
-  .flag-bar{height:6px;background:linear-gradient(90deg,#0f7a3d 0 33%,#f4b400 33% 66%,#c1272d 66% 100%);}
-  .btn-primary{background:var(--vert);color:#fff;transition:transform .15s,background .2s,box-shadow .2s;}
-  .btn-primary:hover{background:var(--vert-deep);box-shadow:0 6px 18px rgba(15,122,61,.25);}
-  .btn-or{background:var(--or);color:#3a2a00;transition:transform .15s,filter .2s,box-shadow .2s;}
-  .btn-or:hover{filter:brightness(.97);box-shadow:0 6px 18px rgba(244,180,0,.3);}
-  .btn-primary:active,.btn-or:active{transform:scale(.96);}
-  .section-title{position:relative;display:inline-block;font-weight:600;}
-  .section-title:after{content:'';position:absolute;left:0;bottom:-8px;width:60px;height:4px;background:var(--or);border-radius:2px;}
-  .eyebrow{font-family:'Inter',sans-serif;text-transform:uppercase;letter-spacing:.14em;font-size:11px;font-weight:700;color:var(--or-deep);}
-  [data-theme="dark"] .eyebrow{color:var(--or);}
-  .card{background:var(--card-bg);color:var(--text);border-radius:16px;box-shadow:0 4px 18px rgba(0,0,0,.06);transition:transform .25s,box-shadow .25s,background .3s;}
-  .card:hover{transform:translateY(-4px);box-shadow:0 12px 28px rgba(0,0,0,.1);}
-  .fade-in{opacity:0;transform:translateY(16px);transition:.6s cubic-bezier(.22,1,.36,1);}
+  :root{
+    --vert:#0f7a3d; --vert-fonce:#0b5c2e; --or:#e9a800; --rouge:#c1272d; --nuit:#0b1f14;
+    --bg:#f6f5ef; --surface:#ffffff; --surface-2:#f1efe6; --texte:#1a1f1b; --muted:#5f6b62; --bord:#e3e0d3;
+    --ombre:0 1px 2px rgba(16,24,20,.04),0 8px 24px rgba(16,24,20,.06);
+  }
+  :root[data-theme="dark"]{
+    --vert:#2fb066; --vert-fonce:#22914f; --or:#f2b92b;
+    --bg:#0c1410; --surface:#141f19; --surface-2:#1b2821; --texte:#e9efe9; --muted:#9db0a3; --bord:#26362d;
+    --ombre:0 1px 2px rgba(0,0,0,.3),0 8px 24px rgba(0,0,0,.35);
+  }
+  .btn.hidden,.card.hidden,.field.hidden{display:none;}   /* "hidden" l'emporte sur .btn/.card quel que soit l'ordre des styles */
+  html{scroll-behavior:smooth;scroll-padding-top:76px;}
+  body{overflow-x:hidden;}
+  body{font-family:'Inter',system-ui,sans-serif;background:var(--bg);color:var(--texte);transition:background .25s,color .25s;}
+  h1,h2,.serif{font-family:'Fraunces',Georgia,serif;letter-spacing:-.01em;}
+  .flag-bar{height:5px;background:linear-gradient(90deg,#14833f 0 33.3%,#f4b400 33.3% 66.6%,#c1272d 66.6% 100%);}
+  .surface{background:var(--surface);}
+  .surface-2{background:var(--surface-2);}
+  .muted{color:var(--muted);}
+  .bord{border-color:var(--bord);}
+  .card{background:var(--surface);border:1px solid var(--bord);border-radius:16px;box-shadow:var(--ombre);}
+  .field{width:100%;background:var(--surface);color:var(--texte);border:1px solid var(--bord);border-radius:10px;padding:10px 12px;font-size:15px;outline:none;transition:border-color .15s,box-shadow .15s;}
+  .field:focus{border-color:var(--vert);box-shadow:0 0 0 3px color-mix(in srgb,var(--vert) 22%,transparent);}
+  .field::placeholder{color:var(--muted);opacity:.8;}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:700;border-radius:12px;padding:12px 20px;transition:transform .12s,filter .15s,background .15s;cursor:pointer;}
+  .btn:active{transform:scale(.98);}
+  .btn:disabled{opacity:.55;cursor:not-allowed;}
+  .btn-primary{background:var(--vert);color:#fff;}
+  .btn-primary:hover{background:var(--vert-fonce);}
+  .btn-or{background:var(--or);color:#2b1f00;}
+  .btn-or:hover{filter:brightness(.95);}
+  .btn-ghost{background:var(--surface-2);color:var(--texte);}
+  .btn-ghost:hover{filter:brightness(.97);}
+  .chip{padding:6px 12px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap;background:var(--surface-2);color:var(--texte);border:1px solid var(--bord);}
+  .chip.actif{background:var(--vert);color:#fff;border-color:var(--vert);}
+  .eyebrow{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--vert);}
+  .section-title{font-size:clamp(1.7rem,3.4vw,2.4rem);font-weight:800;line-height:1.15;}
+  .fade-in{opacity:0;transform:translateY(14px);transition:opacity .6s,transform .6s;}
   .fade-in.show{opacity:1;transform:none;}
+  @media (prefers-reduced-motion: reduce){.fade-in{opacity:1;transform:none;transition:none;}html{scroll-behavior:auto;}}
+  .hero{background:radial-gradient(1100px 500px at 15% -10%,rgba(244,180,0,.20),transparent 60%),radial-gradient(900px 500px at 100% 100%,rgba(193,39,45,.18),transparent 60%),linear-gradient(140deg,#071510 0%,#0d3a22 55%,#0f7a3d 100%);}
+  .hero-logo{animation:flotte 6s ease-in-out infinite;}
+  @keyframes flotte{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+  .montant-btn.actif{background:var(--vert);color:#fff;border-color:var(--vert);}
+  .tab-don.actif{background:var(--vert);color:#fff;}
+  .etape-dot{width:30px;height:30px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;background:var(--surface-2);color:var(--muted);border:1px solid var(--bord);}
+  .etape-dot.actif{background:var(--vert);color:#fff;border-color:var(--vert);}
+  .etape-dot.fait{background:var(--or);color:#2b1f00;border-color:var(--or);}
+  .nav-link{color:var(--muted);font-weight:500;}
+  .nav-link:hover{color:var(--texte);}
+  .bulle{background:var(--surface-2);border-radius:12px;padding:8px 12px;font-size:14px;}
   #chatBox{scrollbar-width:thin;}
-  .nav-link{position:relative;}
-  .nav-link.active{color:var(--vert);font-weight:600;}
-  ::-webkit-scrollbar{width:8px;}
-  ::-webkit-scrollbar-thumb{background:#ccc;border-radius:4px;}
-  .counter{font-variant-numeric:tabular-nums;font-family:'Fraunces',Georgia,serif;}
-  header{background:var(--header-bg)!important;transition:background .3s;}
-  [data-theme="dark"] .bg-white{background:var(--card-bg)!important;}
-  [data-theme="dark"] .bg-gray-50{background:#1c2420!important;}
-  [data-theme="dark"] .bg-gray-100{background:#232b26!important;}
-  [data-theme="dark"] .text-gray-800{color:var(--text)!important;}
-  [data-theme="dark"] .text-gray-500,[data-theme="dark"] .text-gray-600,[data-theme="dark"] .text-gray-400{color:var(--text-soft)!important;}
-  [data-theme="dark"] input,[data-theme="dark"] select,[data-theme="dark"] textarea{background:#1f2a24;color:var(--text);border-color:#2b362f;}
-  [data-theme="dark"] #mobileMenu{background:var(--card-bg);}
-  /* Hero : arrivée en cascade */
-  .hero-anim{opacity:0;transform:translateY(14px);animation:heroIn .7s cubic-bezier(.22,1,.36,1) forwards;}
-  @keyframes heroIn{to{opacity:1;transform:none;}}
-  .hero-bg{position:absolute;inset:0;background:
-      radial-gradient(circle at 20% 15%, rgba(244,180,0,.16), transparent 45%),
-      radial-gradient(circle at 85% 80%, rgba(15,122,61,.35), transparent 50%);}
-  /* Organigramme du bureau */
-  .org-tier{display:grid;gap:1.25rem;justify-content:center;}
-  .org-tier + .org-tier{margin-top:2.25rem;position:relative;}
-  .org-tier + .org-tier:before{content:'';position:absolute;top:-1.15rem;left:50%;width:1px;height:1.15rem;background:var(--or);opacity:.5;}
-  .org-card{width:100%;max-width:220px;}
-  /* Étapes d'adhésion */
-  .step-panel{display:none;}
-  .step-panel.active{display:grid;}
-  .step-dot{width:28px;height:28px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;background:#e5e7eb;color:#6b7280;transition:.25s;}
-  .step-dot.active{background:var(--vert);color:#fff;}
-  .step-dot.done{background:var(--or);color:#3a2a00;}
-  .step-line{flex:1;height:2px;background:#e5e7eb;}
-  [data-theme="dark"] .step-dot{background:#2b362f;color:var(--text-soft);}
-  [data-theme="dark"] .step-line{background:#2b362f;}
-  @media (prefers-reduced-motion: reduce){*{transition:none!important;animation:none!important;}}
+  ::-webkit-scrollbar{width:8px;height:8px;}
+  ::-webkit-scrollbar-thumb{background:color-mix(in srgb,var(--muted) 40%,transparent);border-radius:4px;}
+  .line-clamp-3{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+  .line-clamp-2{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;}
+  .stat-num{font-family:'Fraunces',Georgia,serif;font-weight:800;font-variant-numeric:tabular-nums;}
 </style>
 </head>
-<body class="text-gray-800">
+<body>
 <div class="flag-bar"></div>
 
-<!-- ===== NAV ===== -->
-<header class="sticky top-0 z-40 bg-white/95 backdrop-blur shadow-sm">
-  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between">
-    <div class="flex items-center gap-2">
-      <img class="arm-logo w-11 h-11 rounded-full object-cover border-2 border-[var(--vert)]" alt="Logo A.R.M">
-      <div class="leading-tight">
-        <p class="font-bold text-sm md:text-base">Alliance pour le Rassemblement Malien</p>
-        <p class="text-[11px] text-gray-500" id="deviseNav">Fraternité • Liberté • Égalité</p>
+<!-- ===== EN-TÊTE ===== -->
+<header class="sticky top-0 z-40 border-b bord" style="background:color-mix(in srgb,var(--surface) 88%,transparent);backdrop-filter:blur(10px);">
+  <div class="max-w-6xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+    <a href="#accueil" class="flex items-center gap-3 min-w-0">
+      <img class="arm-logo w-11 h-11 rounded-lg object-cover shadow-sm" alt="Logo A.R.M">
+      <div class="leading-tight min-w-0">
+        <p class="font-bold text-sm md:text-base truncate">Alliance pour le Rassemblement Malien</p>
+        <p class="text-[11px] muted truncate" id="deviseNav">Fraternité • Liberté • Égalité</p>
       </div>
-    </div>
-    <nav class="hidden md:flex gap-5 text-sm font-medium">
-      <a href="#accueil" class="nav-link">Accueil</a>
+    </a>
+    <nav class="hidden lg:flex gap-5 text-sm">
       <a href="#programme" class="nav-link">Programme</a>
       <a href="#bureau" class="nav-link">Bureau</a>
-      <a href="#dons" class="nav-link">Faire un don</a>
+      <a href="#dons" class="nav-link">Dons</a>
       <a href="#adhesion" class="nav-link">Adhésion</a>
       <a href="#actualites" class="nav-link">Actualités</a>
       <a href="#armtv" class="nav-link">ARM TV</a>
       <a href="#chat" class="nav-link">Chat</a>
       <a href="#contact" class="nav-link">Contact</a>
     </nav>
-    <div class="flex items-center gap-2">
-      <button id="notifBtn" class="hidden text-lg px-1" title="Activer les notifications" aria-label="Activer les notifications">🔔</button>
-      <button id="themeToggle" class="text-lg px-1" title="Changer de thème" aria-label="Changer de thème">🌙</button>
-      <button id="installBtn" class="hidden btn-or text-xs font-bold px-3 py-2 rounded-full">📲 Installer l'app</button>
-      <button id="menuBtn" class="md:hidden text-2xl">☰</button>
+    <div class="flex items-center gap-2 shrink-0">
+      <button id="installBtn" class="hidden btn btn-or !py-2 !px-3 text-xs">📲 Installer</button>
+      <button id="themeBtn" class="w-10 h-10 rounded-full surface-2 text-lg" aria-label="Changer de thème" title="Mode clair / sombre">🌙</button>
+      <button id="menuBtn" class="lg:hidden w-10 h-10 rounded-full surface-2 text-xl" aria-label="Menu">☰</button>
     </div>
   </div>
-  <div id="mobileMenu" class="hidden md:hidden flex flex-col gap-3 px-4 pb-4 text-sm font-medium bg-white">
-    <a href="#accueil">Accueil</a><a href="#programme">Programme</a><a href="#bureau">Bureau</a>
-    <a href="#dons">Faire un don</a><a href="#adhesion">Adhésion</a><a href="#actualites">Actualités</a><a href="#armtv">ARM TV</a>
-    <a href="#chat">Chat</a><a href="#contact">Contact</a>
+  <div id="mobileMenu" class="hidden lg:hidden px-4 pb-4 grid grid-cols-2 gap-2 text-sm font-semibold">
+    <a href="#programme" class="chip text-center">Programme</a><a href="#bureau" class="chip text-center">Bureau</a>
+    <a href="#dons" class="chip text-center">Dons</a><a href="#adhesion" class="chip text-center">Adhésion</a>
+    <a href="#actualites" class="chip text-center">Actualités</a><a href="#armtv" class="chip text-center">ARM TV</a>
+    <a href="#chat" class="chip text-center">Chat</a><a href="#contact" class="chip text-center">Contact</a>
   </div>
 </header>
 
-<!-- ===== HERO ===== -->
-<section id="accueil" class="relative overflow-hidden text-white py-24 px-4 text-center" style="background:linear-gradient(135deg,var(--nuit),var(--vert-deep));">
-  <div class="hero-bg"></div>
-  <div class="max-w-3xl mx-auto relative">
-    <img class="arm-logo w-28 h-28 mx-auto rounded-full border-4 border-[var(--or)] object-cover mb-6 bg-white/10 hero-anim" style="animation-delay:.05s" alt="Logo A.R.M">
-    <p class="eyebrow text-[var(--or)] mb-3 hero-anim" style="animation-delay:.15s">Parti politique — Mali</p>
-    <h1 class="font-display text-4xl md:text-6xl font-semibold mb-4 hero-anim" style="animation-delay:.25s">Alliance pour le Rassemblement Malien</h1>
-    <p class="text-lg md:text-xl text-[var(--or)] font-semibold tracking-wide mb-4 hero-anim" style="animation-delay:.35s" id="deviseHero">FRATERNITÉ • LIBERTÉ • ÉGALITÉ</p>
-    <p class="text-gray-200 mb-8 hero-anim" style="animation-delay:.45s">Mouvement pour un Mali uni, fraternel et prospère. Rejoignez-nous où que vous soyez, au pays comme dans la diaspora.</p>
-    <div class="flex flex-wrap justify-center gap-3 hero-anim" style="animation-delay:.55s">
-      <a href="#adhesion" class="btn-or font-bold px-6 py-3 rounded-full">Adhérer au parti</a>
-      <a href="#dons" class="border-2 border-white px-6 py-3 rounded-full font-bold hover:bg-white hover:text-[var(--vert)] transition">Faire un don</a>
+<!-- ===== ACCUEIL ===== -->
+<section id="accueil" class="hero text-white px-4 pt-16 pb-20">
+  <div class="max-w-5xl mx-auto grid md:grid-cols-[1fr_auto] gap-10 items-center">
+    <div class="text-center md:text-left">
+      <p class="text-xs font-bold tracking-[.2em] uppercase text-[#f4c542] mb-4">Parti politique malien · Bamako & diaspora</p>
+      <h1 class="text-4xl md:text-6xl font-extrabold leading-[1.05] mb-4">Alliance pour le<br>Rassemblement Malien</h1>
+      <p class="text-lg md:text-xl font-semibold tracking-wide text-[#f4c542] mb-5" id="deviseHero">FRATERNITÉ • LIBERTÉ • ÉGALITÉ</p>
+      <p class="text-white/80 max-w-xl mx-auto md:mx-0 mb-8">Pour un Mali uni, fraternel et prospère. Rejoignez-nous où que vous soyez, au pays comme dans la diaspora.</p>
+      <div class="flex flex-wrap justify-center md:justify-start gap-3">
+        <a href="#adhesion" class="btn btn-or">Adhérer au parti</a>
+        <a href="#dons" class="btn border-2 border-white/80 text-white hover:bg-white hover:text-[#0d3a22]">Faire un don</a>
+      </div>
     </div>
+    <img class="arm-logo hero-logo w-44 h-44 md:w-72 md:h-72 mx-auto rounded-[28px] object-cover ring-4 ring-[#f4c542]/70 shadow-2xl" alt="Logo A.R.M">
   </div>
-</section>
-
-<!-- ===== STATISTIQUES ===== -->
-<section id="stats" class="py-10 px-4 max-w-5xl mx-auto">
-  <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 text-center">
-    <div class="card p-6 fade-in">
-      <p class="text-3xl font-extrabold text-[var(--vert)] counter" id="statAdherents" data-val="0">0</p>
-      <p class="text-xs text-gray-500 mt-1">Adhérents inscrits</p>
+  <div class="max-w-5xl mx-auto mt-14 grid grid-cols-3 gap-3 text-center">
+    <div class="rounded-2xl bg-white/10 border border-white/15 py-4 px-2">
+      <p class="stat-num text-2xl md:text-4xl" id="statPubAdh">—</p>
+      <p class="text-[11px] md:text-xs text-white/70 mt-1">Adhésions reçues</p>
     </div>
-    <div class="card p-6 fade-in">
-      <p class="text-3xl font-extrabold text-[var(--or)] counter" id="statDons" data-val="0">0 €</p>
-      <p class="text-xs text-gray-500 mt-1">Dons collectés</p>
+    <div class="rounded-2xl bg-white/10 border border-white/15 py-4 px-2">
+      <p class="stat-num text-2xl md:text-4xl" id="statPubRegions">—</p>
+      <p class="text-[11px] md:text-xs text-white/70 mt-1">Régions & diaspora</p>
     </div>
-    <div class="card p-6 fade-in col-span-2 sm:col-span-1">
-      <p class="text-3xl font-extrabold text-[var(--rouge)] counter" id="statMessages" data-val="0">0</p>
-      <p class="text-xs text-gray-500 mt-1">Messages reçus</p>
+    <div class="rounded-2xl bg-white/10 border border-white/15 py-4 px-2">
+      <p class="stat-num text-2xl md:text-4xl" id="statPubBureau">—</p>
+      <p class="text-[11px] md:text-xs text-white/70 mt-1">Membres du bureau</p>
     </div>
   </div>
 </section>
 
 <!-- ===== PROGRAMME ===== -->
-<section id="programme" class="py-16 px-4 max-w-6xl mx-auto">
-  <h2 class="section-title text-2xl md:text-3xl font-extrabold mb-10">Notre programme politique</h2>
-  <div id="programmeGrid" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5">
-    <!-- injecté / éditable -->
-  </div>
+<section id="programme" class="py-20 px-4 max-w-6xl mx-auto">
+  <p class="eyebrow mb-2">Notre vision</p>
+  <h2 class="section-title mb-10">Notre programme politique</h2>
+  <div id="programmeGrid" class="grid sm:grid-cols-2 lg:grid-cols-4 gap-5"></div>
 </section>
 
-<!-- ===== BUREAU EXECUTIF ===== -->
-<section id="bureau" class="py-16 px-4 bg-white">
+<!-- ===== BUREAU EXÉCUTIF ===== -->
+<section id="bureau" class="py-20 px-4 surface border-y bord">
   <div class="max-w-6xl mx-auto">
-    <div class="flex flex-wrap items-end justify-between gap-4 mb-2">
-      <h2 class="section-title text-2xl md:text-3xl font-extrabold">Bureau exécutif</h2>
-      <input id="rechercheBureau" type="search" placeholder="🔍 Rechercher un membre…" class="border rounded-lg px-3 py-2 text-sm w-full sm:w-64">
+    <div class="flex flex-wrap items-end justify-between gap-4 mb-10">
+      <div>
+        <p class="eyebrow mb-2">Direction du parti</p>
+        <h2 class="section-title">Bureau exécutif</h2>
+      </div>
+      <input id="rechercheBureau" type="search" placeholder="Rechercher un membre, un rôle, une ville…" class="field max-w-xs">
     </div>
-    <p class="text-xs text-gray-400 mb-10">Cliquez sur un membre pour copier son numéro de téléphone.</p>
-    <div id="bureauGrid"></div>
+    <div id="bureauGrid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5"></div>
   </div>
 </section>
 
 <!-- ===== DONS ===== -->
-<section id="dons" class="py-16 px-4 max-w-4xl mx-auto">
-  <h2 class="section-title text-2xl md:text-3xl font-extrabold mb-10">Soutenir l'A.R.M</h2>
-  <div class="card p-6 md:p-8">
-    <p class="text-gray-600 mb-6">Votre don, quel que soit son montant, renforce notre action pour un Mali uni, fraternel et prospère.</p>
-    <div class="grid grid-cols-3 md:grid-cols-5 gap-3 mb-6" id="montantsDon">
-      <button class="montant-btn card py-3 font-bold hover:border-2 hover:border-[var(--vert)]" data-m="5">5 €</button>
-      <button class="montant-btn card py-3 font-bold hover:border-2 hover:border-[var(--vert)]" data-m="10">10 €</button>
-      <button class="montant-btn card py-3 font-bold hover:border-2 hover:border-[var(--vert)]" data-m="20">20 €</button>
-      <button class="montant-btn card py-3 font-bold hover:border-2 hover:border-[var(--vert)]" data-m="50">50 €</button>
-      <button class="montant-btn card py-3 font-bold hover:border-2 hover:border-[var(--vert)]" data-m="100">100 €</button>
+<section id="dons" class="py-20 px-4 max-w-4xl mx-auto">
+  <p class="eyebrow mb-2">Soutenir le mouvement</p>
+  <h2 class="section-title mb-8">Faire un don à l'A.R.M</h2>
+  <div class="card p-5 md:p-8">
+    <p class="muted mb-6">Votre don, quel que soit son montant, renforce notre action pour un Mali uni, fraternel et prospère.</p>
+
+    <p class="text-sm font-semibold mb-3">1. Choisissez un montant</p>
+    <div class="grid grid-cols-3 md:grid-cols-5 gap-3 mb-4">
+      <button type="button" class="montant-btn card py-3 font-bold" data-m="5">5 €</button>
+      <button type="button" class="montant-btn card py-3 font-bold actif" data-m="10">10 €</button>
+      <button type="button" class="montant-btn card py-3 font-bold" data-m="20">20 €</button>
+      <button type="button" class="montant-btn card py-3 font-bold" data-m="50">50 €</button>
+      <button type="button" class="montant-btn card py-3 font-bold" data-m="100">100 €</button>
     </div>
-    <div class="flex items-center gap-3 mb-6">
-      <span class="text-sm text-gray-500">Ou montant libre :</span>
-      <input type="number" id="montantLibre" min="1" class="border rounded-lg px-3 py-2 w-32" placeholder="€">
+    <div class="flex items-center gap-3 mb-8">
+      <label for="montantLibre" class="text-sm muted">Ou montant libre :</label>
+      <input type="number" id="montantLibre" min="1" max="100000" step="1" class="field !w-32" placeholder="€">
     </div>
 
-    <div class="flex gap-2 mb-6 flex-wrap" id="donTabs">
-      <button data-tab="carte" class="donTab flex-1 py-2 rounded-lg font-bold btn-primary">💳 Carte bancaire</button>
-      <button data-tab="mobile" class="donTab flex-1 py-2 rounded-lg font-bold bg-gray-100">📱 Mobile Money</button>
-      <button data-tab="virement" class="donTab flex-1 py-2 rounded-lg font-bold bg-gray-100">🏦 Virement BMS Mali</button>
+    <p class="text-sm font-semibold mb-3">2. Choisissez votre moyen de paiement</p>
+    <div class="grid grid-cols-3 gap-2 mb-6">
+      <button type="button" data-tab="carte" class="tab-don btn btn-ghost !px-2 text-sm actif">💳 Carte</button>
+      <button type="button" data-tab="mobile" class="tab-don btn btn-ghost !px-2 text-sm">📱 Mobile Money</button>
+      <button type="button" data-tab="virement" class="tab-don btn btn-ghost !px-2 text-sm">🏦 Virement BMS</button>
     </div>
 
-    <!-- Paiement carte (simulé) -->
-    <form id="formCarte" class="space-y-3">
-      <input required id="donNom" placeholder="Nom complet" class="w-full border rounded-lg px-3 py-2">
-      <input required id="donEmail" type="email" placeholder="Email" class="w-full border rounded-lg px-3 py-2">
-      <input required id="carteNum" maxlength="19" placeholder="Numéro de carte (VISA / Mastercard)" class="w-full border rounded-lg px-3 py-2">
-      <div class="flex gap-3">
-        <input required id="carteExp" maxlength="5" placeholder="MM/AA" class="w-1/2 border rounded-lg px-3 py-2">
-        <input required id="carteCvc" maxlength="4" placeholder="CVC" class="w-1/2 border rounded-lg px-3 py-2">
+    <!-- Carte : lien de paiement sécurisé externe (Stripe, PayPal…), configurable par l'admin -->
+    <div id="panneauCarte" class="panneau-don space-y-3">
+      <div id="carteActive" class="hidden">
+        <p class="text-sm muted mb-3">Le paiement par carte VISA / Mastercard se fait sur la page sécurisée de notre prestataire de paiement. Aucune donnée bancaire ne transite par ce site.</p>
+        <a id="lienPaiementCarte" href="#" target="_blank" rel="noopener" class="btn btn-primary w-full">🔒 Payer <span class="montantAffiche">10 €</span> par carte</a>
       </div>
-      <p class="text-xs text-gray-400">🔒 Paiement sécurisé — traitement simulé côté démonstration. Pour un encaissement réel, connecter un prestataire agréé (Stripe, PayPal ou CB en ligne BMS).</p>
-      <button class="btn-primary w-full py-3 rounded-lg font-bold">Faire un don <span id="montantAffiche">de 5 €</span></button>
-    </form>
+      <div id="carteInactive" class="surface-2 rounded-xl p-4 text-sm">
+        Le paiement par carte en ligne sera bientôt disponible. En attendant, vous pouvez donner par <b>Mobile Money</b> ou par <b>virement BMS</b>.
+      </div>
+    </div>
 
     <!-- Mobile Money -->
-    <div id="formMobileMoney" class="hidden space-y-3">
-      <div class="bg-gray-50 rounded-lg p-4 text-sm space-y-1">
-        <p><b>Orange Money :</b> <span id="omNumero">à renseigner par l'administrateur</span></p>
-        <p><b>Moov Money :</b> <span id="moovNumero">à renseigner par l'administrateur</span></p>
-        <p><b>Wave :</b> <span id="waveNumero">à renseigner par l'administrateur</span></p>
-        <p><b>Nom du bénéficiaire :</b> Alliance pour le Rassemblement Malien</p>
-        <p><b>Référence à indiquer :</b> DON-ARM-<span id="refMobile"></span></p>
+    <div id="panneauMobile" class="panneau-don hidden space-y-2">
+      <div class="surface-2 rounded-xl p-4 text-sm space-y-2">
+        <p>Envoyez <b class="montantAffiche">10 €</b> (ou l'équivalent en FCFA) au numéro du parti :</p>
+        <p>🟠 <b>Orange Money :</b> <span id="numOrange">à renseigner par l'administrateur</span></p>
+        <p>🔵 <b>Moov Money :</b> <span id="numMoov">à renseigner par l'administrateur</span></p>
+        <p>🟦 <b>Wave :</b> <span id="numWave">à renseigner par l'administrateur</span></p>
+        <p>Indiquez la référence <b class="refDon"></b> dans le motif si possible.</p>
       </div>
-      <button id="btnMobileFait" class="btn-primary w-full py-3 rounded-lg font-bold">J'ai effectué le paiement Mobile Money</button>
     </div>
 
-    <!-- Virement bancaire -->
-    <div id="formVirement" class="hidden space-y-3">
-      <div class="bg-gray-50 rounded-lg p-4 text-sm space-y-1">
+    <!-- Virement -->
+    <div id="panneauVirement" class="panneau-don hidden">
+      <div class="surface-2 rounded-xl p-4 text-sm space-y-1">
         <p><b>Banque :</b> BMS SA (Banque Malienne de Solidarité)</p>
-        <p><b>Titulaire du compte :</b> Alliance pour le Rassemblement Malien</p>
+        <p><b>Titulaire :</b> Alliance pour le Rassemblement Malien</p>
         <p><b>Compte épargne BMS — Mali</b></p>
-        <p><b>IBAN / N° compte :</b> <span id="ibanVirement">à renseigner par l'administrateur</span></p>
-        <p><b>Référence à indiquer :</b> DON-ARM-<span id="refVirement"></span></p>
+        <p><b>IBAN / N° de compte :</b> <span id="ibanVirement">à renseigner par l'administrateur</span></p>
+        <p><b>Montant :</b> <span class="montantAffiche">10 €</span></p>
+        <p><b>Référence à indiquer :</b> <span class="refDon"></span></p>
       </div>
-      <button id="btnVirementFait" class="btn-primary w-full py-3 rounded-lg font-bold">J'ai effectué le virement</button>
     </div>
-    <div id="donConfirm" class="hidden mt-4 bg-green-50 border border-green-300 text-green-800 rounded-lg p-4 text-sm"></div>
+
+    <!-- Déclaration du don (Mobile Money / virement) -->
+    <form id="formDeclarationDon" class="hidden mt-6 space-y-3">
+      <p class="text-sm font-semibold">3. Déclarez votre don pour recevoir votre reçu</p>
+      <div class="grid sm:grid-cols-2 gap-3">
+        <input id="donNom" required maxlength="80" placeholder="Nom complet" class="field">
+        <input id="donContact" maxlength="80" placeholder="Téléphone ou email (pour le reçu)" class="field">
+      </div>
+      <button class="btn btn-primary w-full">J'ai effectué mon don de <span class="montantAffiche">10 €</span></button>
+    </form>
+    <div id="donConfirm" class="hidden mt-4 rounded-xl p-4 text-sm border" style="background:color-mix(in srgb,var(--vert) 10%,transparent);border-color:color-mix(in srgb,var(--vert) 35%,transparent);"></div>
   </div>
 </section>
 
-<!-- ===== ADHESION ===== -->
-<section id="adhesion" class="py-16 px-4 bg-white">
+<!-- ===== ADHÉSION (3 étapes) ===== -->
+<section id="adhesion" class="py-20 px-4 surface border-y bord">
   <div class="max-w-3xl mx-auto">
-    <h2 class="section-title text-2xl md:text-3xl font-extrabold mb-10">Adhérer au parti</h2>
+    <p class="eyebrow mb-2">Rejoindre l'A.R.M</p>
+    <h2 class="section-title mb-8">Adhérer au parti</h2>
 
-    <!-- Indicateur d'étapes -->
-    <div class="flex items-center mb-8 max-w-md mx-auto" id="stepIndicator">
-      <div class="step-dot active" data-step="1">1</div>
-      <div class="step-line"></div>
-      <div class="step-dot" data-step="2">2</div>
-      <div class="step-line"></div>
-      <div class="step-dot" data-step="3">3</div>
+    <div class="flex items-center gap-2 mb-6 text-sm">
+      <div class="etape-dot actif" data-dot="1">1</div><span class="font-semibold hidden sm:inline">Identité</span>
+      <div class="flex-1 h-px" style="background:var(--bord)"></div>
+      <div class="etape-dot" data-dot="2">2</div><span class="font-semibold hidden sm:inline">Localisation</span>
+      <div class="flex-1 h-px" style="background:var(--bord)"></div>
+      <div class="etape-dot" data-dot="3">3</div><span class="font-semibold hidden sm:inline">Envoi</span>
     </div>
 
-    <form id="formAdhesion" class="card p-6 md:p-8">
-      <!-- Étape 1 : identité -->
-      <div class="step-panel active sm:grid-cols-2 gap-4" data-step="1">
-        <p class="sm:col-span-2 eyebrow mb-1">Étape 1 — Identité</p>
-        <input required id="aNom" placeholder="Nom" class="border rounded-lg px-3 py-2">
-        <input required id="aPrenom" placeholder="Prénom" class="border rounded-lg px-3 py-2">
-        <input required id="aTel" placeholder="Téléphone" class="border rounded-lg px-3 py-2">
-        <input id="aEmail" type="email" placeholder="Email" class="border rounded-lg px-3 py-2">
-        <input id="aProfession" placeholder="Profession" class="border rounded-lg px-3 py-2 sm:col-span-2">
+    <form id="formAdhesion" class="card p-5 md:p-8" novalidate>
+      <div class="etape grid sm:grid-cols-2 gap-4" data-etape="1">
+        <input required id="aNom" maxlength="80" placeholder="Nom *" class="field">
+        <input required id="aPrenom" maxlength="80" placeholder="Prénom *" class="field">
+        <input required id="aTel" maxlength="30" type="tel" placeholder="Téléphone *" class="field">
+        <input id="aEmail" maxlength="120" type="email" placeholder="Email" class="field">
+        <input id="aProfession" maxlength="80" placeholder="Profession" class="field sm:col-span-2">
       </div>
-
-      <!-- Étape 2 : localisation -->
-      <div class="step-panel sm:grid-cols-2 gap-4" data-step="2">
-        <p class="sm:col-span-2 eyebrow mb-1">Étape 2 — Localisation</p>
-        <input id="aPays" placeholder="Pays de résidence" class="border rounded-lg px-3 py-2">
-        <select id="aRegion" class="border rounded-lg px-3 py-2"><option value="">Région</option></select>
-        <select id="aCercle" class="border rounded-lg px-3 py-2"><option value="">Cercle / Commune</option></select>
-        <input id="aQuartier" placeholder="Quartier / Ville" class="border rounded-lg px-3 py-2">
+      <div class="etape hidden grid sm:grid-cols-2 gap-4" data-etape="2">
+        <select required id="aRegion" class="field"><option value="">Région *</option></select>
+        <select id="aCercle" class="field"><option value="">Cercle / Commune</option></select>
+        <input id="aPays" maxlength="60" placeholder="Pays de résidence" class="field">
+        <input id="aQuartier" maxlength="80" placeholder="Quartier / Ville" class="field">
       </div>
-
-      <!-- Étape 3 : message + récapitulatif -->
-      <div class="step-panel gap-4" data-step="3">
-        <p class="eyebrow mb-1">Étape 3 — Message & envoi</p>
-        <textarea id="aMessage" placeholder="Message (optionnel)" class="border rounded-lg px-3 py-2" rows="3"></textarea>
-        <div id="adhesionRecap" class="bg-gray-50 rounded-lg p-4 text-sm space-y-1"></div>
+      <div class="etape hidden space-y-4" data-etape="3">
+        <textarea id="aMessage" maxlength="1000" placeholder="Pourquoi souhaitez-vous rejoindre l'A.R.M ? (optionnel)" class="field" rows="4"></textarea>
+        <div id="recapAdhesion" class="surface-2 rounded-xl p-4 text-sm"></div>
+        <label class="flex gap-2 text-sm muted"><input type="checkbox" id="aConsent" class="mt-1"> J'accepte que mes informations soient utilisées par l'A.R.M pour traiter mon adhésion.</label>
       </div>
-
-      <div class="flex justify-between items-center mt-6 pt-4 border-t">
-        <button type="button" id="stepPrev" class="hidden text-sm font-bold text-gray-500 hover:text-[var(--vert)]">← Précédent</button>
-        <div class="flex-1"></div>
-        <button type="button" id="stepNext" class="btn-primary px-6 py-3 rounded-lg font-bold">Suivant →</button>
-        <button type="submit" id="stepSubmit" class="hidden btn-primary px-6 py-3 rounded-lg font-bold">Envoyer ma demande d'adhésion</button>
+      <p id="adhesionErreur" class="hidden text-sm mt-4" style="color:var(--rouge)"></p>
+      <div class="flex justify-between gap-3 mt-6">
+        <button type="button" id="btnPrecedent" class="btn btn-ghost invisible">← Précédent</button>
+        <button type="button" id="btnSuivant" class="btn btn-primary">Suivant →</button>
+        <button type="submit" id="btnEnvoyerAdhesion" class="btn btn-primary hidden">Envoyer ma demande</button>
       </div>
     </form>
-    <div id="adhesionConfirm" class="hidden mt-4 bg-green-50 border border-green-300 text-green-800 rounded-lg p-4 text-sm max-w-3xl mx-auto"></div>
+    <div id="adhesionConfirm" class="hidden mt-4 rounded-xl p-4 text-sm border" style="background:color-mix(in srgb,var(--vert) 10%,transparent);border-color:color-mix(in srgb,var(--vert) 35%,transparent);"></div>
   </div>
 </section>
 
-<!-- ===== ACTUALITES / EVENEMENTS ===== -->
-<section id="actualites" class="py-16 px-4 max-w-6xl mx-auto">
+<!-- ===== ACTUALITÉS ===== -->
+<section id="actualites" class="py-20 px-4 max-w-6xl mx-auto">
   <div class="flex flex-wrap items-end justify-between gap-4 mb-10">
-    <h2 class="section-title text-2xl md:text-3xl font-extrabold">Actualités & Événements</h2>
-    <input id="rechercheActu" type="search" placeholder="🔍 Rechercher une actualité…" class="border rounded-lg px-3 py-2 text-sm w-full sm:w-64">
+    <div>
+      <p class="eyebrow mb-2">Vie du parti</p>
+      <h2 class="section-title">Actualités & Événements</h2>
+    </div>
+    <input id="rechercheActu" type="search" placeholder="Rechercher une actualité…" class="field max-w-xs">
   </div>
-  <div id="actualitesGrid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-4">
-    <p class="text-gray-400 text-sm">Chargement des actualités…</p>
-  </div>
-  <p id="actualitesSentinel" class="text-center text-xs text-gray-400 py-4"></p>
+  <div id="actualitesGrid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+  <div id="sentinelActu" class="text-center text-sm muted py-6">Chargement…</div>
 </section>
 
 <!-- ===== ARM TV ===== -->
-<section id="armtv" class="py-16 px-4 bg-[var(--nuit)] text-white">
+<section id="armtv" class="py-20 px-4 text-white" style="background:#071510;">
   <div class="max-w-6xl mx-auto">
     <div class="flex items-center gap-3 mb-2">
-      <h2 class="section-title text-2xl md:text-3xl font-extrabold">ARM TV</h2>
+      <h2 class="section-title">ARM TV</h2>
       <span id="armtvDirectBadge" class="hidden bg-red-600 text-xs font-bold px-3 py-1 rounded-full animate-pulse">🔴 EN DIRECT</span>
     </div>
-    <p class="text-gray-300 text-sm mb-6">Actualités du Mali, culture, économie, sport et activités de l'A.R.M — diffusion continue.</p>
-
+    <p class="text-white/70 text-sm mb-8">Actualités du Mali, culture, économie, sport et activités de l'A.R.M — diffusion continue.</p>
     <div class="grid lg:grid-cols-3 gap-6">
       <div class="lg:col-span-2">
-        <video id="armtvPlayer" class="w-full rounded-xl bg-black aspect-video" controls playsinline></video>
+        <div class="relative">
+          <video id="armtvPlayer" class="w-full rounded-2xl bg-black aspect-video" controls playsinline preload="metadata"></video>
+          <div id="armtvVide" class="absolute inset-0 hidden flex-col items-center justify-center text-center rounded-2xl bg-black/80 p-6">
+            <img class="arm-logo w-20 h-20 rounded-xl mb-3 object-cover" alt="">
+            <p class="font-semibold">Les programmes d'ARM TV arrivent bientôt.</p>
+          </div>
+        </div>
         <p class="font-bold mt-3" id="armtvTitreActuel"></p>
-        <p class="text-xs text-gray-400" id="armtvThemeActuel"></p>
+        <p class="text-xs text-white/60" id="armtvThemeActuel"></p>
       </div>
       <div>
         <div id="armtvThemes" class="flex gap-2 overflow-x-auto pb-2 mb-3"></div>
         <div id="armtvPlaylistGrid" class="grid grid-cols-2 gap-3 max-h-[420px] overflow-y-auto pr-1"></div>
-        <p id="armtvSentinel" class="text-center text-xs text-gray-400 py-2"></p>
       </div>
     </div>
   </div>
 </section>
 
-<!-- ===== CHAT PUBLIC ===== -->
-<section id="chat" class="py-16 px-4 bg-white">
+<!-- ===== CHAT ===== -->
+<section id="chat" class="py-20 px-4">
   <div class="max-w-2xl mx-auto">
-    <h2 class="section-title text-2xl md:text-3xl font-extrabold mb-10">Chat public des militants</h2>
-    <div class="card p-4 flex flex-col h-[420px]">
+    <p class="eyebrow mb-2">Espace militant</p>
+    <h2 class="section-title mb-8">Chat public</h2>
+    <div class="card p-4 flex flex-col h-[460px]">
       <div id="chatBox" class="flex-1 overflow-y-auto space-y-2 mb-3 px-1"></div>
       <form id="chatForm" class="flex gap-2">
-        <input required id="chatNom" placeholder="Votre nom" class="border rounded-lg px-3 py-2 w-28 md:w-36 text-sm">
-        <input required id="chatMsg" placeholder="Votre message…" class="border rounded-lg px-3 py-2 flex-1 text-sm">
-        <button class="btn-primary px-4 rounded-lg font-bold">➤</button>
+        <input required id="chatNom" maxlength="40" placeholder="Votre nom" class="field !w-28 md:!w-36 text-sm">
+        <input required id="chatMsg" maxlength="500" placeholder="Votre message…" class="field flex-1 text-sm">
+        <button class="btn btn-primary !px-4" aria-label="Envoyer">➤</button>
       </form>
     </div>
+    <p class="text-xs muted mt-2">Restez courtois : les messages sont modérés par l'administration du parti.</p>
   </div>
 </section>
 
 <!-- ===== CONTACT ===== -->
-<section id="contact" class="py-16 px-4 max-w-6xl mx-auto">
-  <h2 class="section-title text-2xl md:text-3xl font-extrabold mb-10">Contact</h2>
-  <div class="grid md:grid-cols-2 gap-8">
-    <form id="formContact" class="card p-6 space-y-3">
-      <input required id="cNom" placeholder="Nom" class="w-full border rounded-lg px-3 py-2">
-      <input required id="cEmail" type="email" placeholder="Email" class="w-full border rounded-lg px-3 py-2">
-      <input id="cSujet" placeholder="Sujet" class="w-full border rounded-lg px-3 py-2">
-      <textarea required id="cMessage" placeholder="Votre message" rows="4" class="w-full border rounded-lg px-3 py-2"></textarea>
-      <button class="btn-primary w-full py-3 rounded-lg font-bold">Envoyer le message</button>
-      <div id="contactConfirm" class="hidden bg-green-50 border border-green-300 text-green-800 rounded-lg p-3 text-sm"></div>
-    </form>
-    <div class="card p-6 space-y-3 text-sm">
-      <p class="font-bold text-lg mb-2">Siège du parti</p>
-      <p>📍 <span id="siegeContact">Sebenikoro, Rue 530, Porte 245, Bamako, Mali</span></p>
-      <div id="contactDirigeants" class="pt-3 space-y-2"></div>
+<section id="contact" class="py-20 px-4 surface border-t bord">
+  <div class="max-w-6xl mx-auto">
+    <p class="eyebrow mb-2">Nous écrire</p>
+    <h2 class="section-title mb-10">Contact</h2>
+    <div class="grid md:grid-cols-2 gap-8">
+      <form id="formContact" class="card p-6 space-y-3">
+        <input required id="cNom" maxlength="80" placeholder="Nom" class="field">
+        <input required id="cEmail" maxlength="120" type="email" placeholder="Email" class="field">
+        <input id="cSujet" maxlength="120" placeholder="Sujet" class="field">
+        <textarea required id="cMessage" maxlength="3000" placeholder="Votre message" rows="5" class="field"></textarea>
+        <button class="btn btn-primary w-full">Envoyer le message</button>
+      </form>
+      <div class="card p-6 space-y-3 text-sm">
+        <p class="serif font-bold text-xl mb-2">Siège du parti</p>
+        <p>📍 <span id="siegeContact">Sebenikoro, Rue 530, Porte 245, Bamako, Mali</span></p>
+        <div id="contactDirigeants" class="pt-3 space-y-2"></div>
+      </div>
     </div>
   </div>
 </section>
 
-<footer class="bg-[var(--nuit)] text-gray-300 py-10 px-4 text-center text-sm">
-  <img class="arm-logo w-16 h-16 mx-auto rounded-full mb-4 border-2 border-[var(--or)] object-cover" alt="Logo A.R.M">
-  <div class="flag-bar mb-6 max-w-xs mx-auto rounded"></div>
-  <p class="font-bold text-white">Alliance pour le Rassemblement Malien</p>
-  <p class="text-[var(--or)] mb-2" id="deviseFooter">Fraternité • Liberté • Égalité</p>
-  <p><span id="siegeFooter">Sebenikoro, Rue 530, Porte 245 — Bamako, Mali</span></p>
-  <p class="mt-2 opacity-60">© <span id="anneeFooter"></span> A.R.M — Tous droits réservés</p>
-  <a href="admin.html" class="inline-block mt-3 text-gray-600 hover:text-gray-300 text-xs opacity-40 hover:opacity-100" title="Administration">⚙</a>
+<footer class="text-white/75 py-12 px-4 text-center text-sm" style="background:#071510;">
+  <img class="arm-logo w-20 h-20 mx-auto rounded-2xl mb-4 object-cover" alt="Logo A.R.M">
+  <div class="flag-bar mb-6 max-w-[200px] mx-auto rounded"></div>
+  <p class="serif font-bold text-white text-lg">Alliance pour le Rassemblement Malien</p>
+  <p class="text-[#f4c542] mb-2" id="deviseFooter">Fraternité • Liberté • Égalité</p>
+  <p id="siegeFooter">Sebenikoro, Rue 530, Porte 245 — Bamako, Mali</p>
+  <p class="mt-3 opacity-60">© <span id="anneeFooter"></span> A.R.M — Tous droits réservés</p>
+  <a href="admin.html" class="inline-block mt-3 text-xs opacity-30 hover:opacity-100" title="Administration">⚙</a>
 </footer>
 
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
 <script src="data.js"></script>
+<script src="utils.js"></script>
 <script src="infinite-scroll.js"></script>
 <script src="app.js"></script>
 <script src="armtv.js"></script>
-<script src="modern.js"></script>
 </body>
 </html>

@@ -62,6 +62,7 @@ function initGalerieMedias({ db, storage, inputEl, progressEl, gridEl, sentinelE
         });
       } catch (err) {
         console.error('Erreur upload média :', err);
+        toast(`Échec de l'envoi de ${f.name}`, 'erreur');
       }
     }
     progressEl.classList.add('hidden');
@@ -82,17 +83,25 @@ function initGalerieMedias({ db, storage, inputEl, progressEl, gridEl, sentinelE
         const m = doc.data();
         const ko = m.tailleCompressee ? Math.round(m.tailleCompressee / 1024) : '?';
         const div = document.createElement('div');
-        div.className = 'card overflow-hidden relative group';
+        div.className = 'card overflow-hidden relative';
         div.innerHTML = `
-          <img src="${m.url}" class="w-full h-32 object-cover" loading="lazy">
-          <div class="p-2 text-[10px] text-gray-400 flex justify-between items-center">
+          <img src="${safeUrl(m.url)}" alt="" class="w-full h-32 object-cover" loading="lazy">
+          <div class="p-2 text-[11px] text-gray-500 flex justify-between items-center gap-2">
             <span>${ko} Ko</span>
-            <button class="text-red-600 font-bold">🗑</button>
+            <span class="whitespace-nowrap">
+              <button type="button" class="font-bold text-green-700 mr-1" data-act="copier" title="Copier le lien de l'image">📋 Lien</button>
+              <button type="button" class="font-bold text-red-600" data-act="supprimer" title="Supprimer">🗑</button>
+            </span>
           </div>`;
-        div.querySelector('button').onclick = async () => {
+        div.querySelector('[data-act="copier"]').onclick = async () => {
+          try { await navigator.clipboard.writeText(m.url); toast('Lien copié : colle-le dans une actualité ou une miniature'); }
+          catch (e) { prompt('Copie ce lien :', m.url); }
+        };
+        div.querySelector('[data-act="supprimer"]').onclick = async () => {
+          if (!confirm('Supprimer cette image ?')) return;
           try { await storage.ref(m.chemin).delete(); } catch (e) {}
-          await db.collection('medias').doc(doc.id).delete();
-          div.remove();
+          try { await db.collection('medias').doc(doc.id).delete(); div.remove(); toast('Image supprimée'); }
+          catch (e) { toast('Suppression impossible', 'erreur'); }
         };
         gridEl.appendChild(div);
       });

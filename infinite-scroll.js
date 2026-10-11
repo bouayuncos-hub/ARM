@@ -24,7 +24,7 @@
    liste.rafraichir();    // relance depuis le début
    ========================================================================= */
 
-function creerDefilementInfini({ collection, orderBy, pageSize = 20, sentinel, onPage, onFin }) {
+function creerDefilementInfini({ collection, orderBy, pageSize = 20, sentinel, onPage, onFin, texteVide = 'Aucune donnée pour le moment.', texteFin = '' }) {
   let dernierDoc = null;
   let enCours = false;
   let termine = false;
@@ -42,7 +42,7 @@ function creerDefilementInfini({ collection, orderBy, pageSize = 20, sentinel, o
       const snap = await q.get();
       if (snap.empty) {
         termine = true;
-        if (sentinel) sentinel.textContent = estPremierePage ? 'Aucune donnée.' : 'Fin de la liste.';
+        if (sentinel) sentinel.textContent = estPremierePage ? texteVide : texteFin;
         if (onFin) onFin();
         enCours = false;
         return;
@@ -50,14 +50,14 @@ function creerDefilementInfini({ collection, orderBy, pageSize = 20, sentinel, o
       dernierDoc = snap.docs[snap.docs.length - 1];
       if (snap.docs.length < pageSize) {
         termine = true;
-        if (sentinel) sentinel.textContent = 'Fin de la liste.';
+        if (sentinel) sentinel.textContent = texteFin;
       } else if (sentinel) {
         sentinel.textContent = '';
       }
       onPage(snap.docs, estPremierePage);
     } catch (err) {
       console.error('Erreur défilement infini :', err);
-      if (sentinel) sentinel.textContent = 'Erreur de chargement.';
+      if (sentinel) sentinel.textContent = 'Chargement impossible pour le moment.';
     }
     enCours = false;
   }

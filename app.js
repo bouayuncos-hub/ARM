@@ -1,307 +1,402 @@
-/* ===================== INIT FIREBASE ===================== */
+/* =========================================================================
+   A.R.M — SITE PUBLIC
+   Tout texte venant de Firestore passe par esc() (voir utils.js) avant
+   d'être affiché : c'est ce qui protège le site et le tableau de bord
+   contre l'injection de code via le chat ou les formulaires publics.
+   ========================================================================= */
+
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
-document.getElementById('anneeFooter').textContent = new Date().getFullYear();
+const inc = (n) => firebase.firestore.FieldValue.increment(n);
 
-/* ===================== LOGO ===================== */
+document.getElementById('anneeFooter').textContent = new Date().getFullYear();
 document.querySelectorAll('.arm-logo').forEach(img => { img.src = LOGO_DATA_URI; });
 
-/* ===================== MENU MOBILE ===================== */
-document.getElementById('menuBtn').onclick = () => {
-  document.getElementById('mobileMenu').classList.toggle('hidden');
-};
-document.querySelectorAll('#mobileMenu a').forEach(a => a.onclick = () => {
-  document.getElementById('mobileMenu').classList.add('hidden');
-});
+/* ===================== THÈME CLAIR / SOMBRE ===================== */
+const themeBtn = document.getElementById('themeBtn');
+function appliquerTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  themeBtn.textContent = t === 'dark' ? '☀️' : '🌙';
+  try { localStorage.setItem('arm-theme', t); } catch (e) {}
+}
+appliquerTheme(document.documentElement.getAttribute('data-theme') || 'light');
+themeBtn.onclick = () => appliquerTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark');
 
-/* ===================== RENDU PROGRAMME ===================== */
+/* ===================== MENU MOBILE ===================== */
+document.getElementById('menuBtn').onclick = () => document.getElementById('mobileMenu').classList.toggle('hidden');
+document.querySelectorAll('#mobileMenu a').forEach(a => a.onclick = () => document.getElementById('mobileMenu').classList.add('hidden'));
+
+/* ===================== ANIMATIONS D'APPARITION ===================== */
+const obs = new IntersectionObserver(entries => {
+  entries.forEach(en => { if (en.isIntersecting) { en.target.classList.add('show'); obs.unobserve(en.target); } });
+}, { threshold: .1 });
+// Appelée après chaque rendu : sans cela, le contenu chargé plus tard
+// (bureau modifié par l'admin, actualités) restait invisible.
+function observerFadeIn(racine = document) {
+  racine.querySelectorAll('.fade-in:not(.show)').forEach(el => obs.observe(el));
+}
+
+/* ===================== PROGRAMME ===================== */
 function renderProgramme(liste) {
   const grid = document.getElementById('programmeGrid');
   grid.innerHTML = (liste || PROGRAMME).map(p => `
-    <div class="card p-5 text-center fade-in">
-      <div class="text-4xl mb-3">${p.icone}</div>
-      <h3 class="font-bold mb-2">${p.titre}</h3>
-      <p class="text-sm text-gray-500">${p.texte}</p>
+    <div class="card p-6 fade-in">
+      <div class="text-4xl mb-4">${esc(p.icone)}</div>
+      <h3 class="serif font-bold text-xl mb-2">${esc(p.titre)}</h3>
+      <p class="text-sm muted leading-relaxed">${esc(p.texte)}</p>
     </div>`).join('');
+  observerFadeIn(grid);
 }
 
-/* ===================== RENDU BUREAU ===================== */
+/* ===================== BUREAU EXÉCUTIF (+ recherche) ===================== */
+let bureauAffiche = BUREAU.slice();
+
 function renderBureau(liste) {
-  const membres = liste || BUREAU;
+  if (liste) bureauAffiche = liste;
+  const q = (document.getElementById('rechercheBureau').value || '').trim().toLowerCase();
+  const membres = q
+    ? bureauAffiche.filter(m => [m.role, m.nom, m.profession, m.lieu].join(' ').toLowerCase().includes(q))
+    : bureauAffiche;
+
   const grid = document.getElementById('bureauGrid');
+  grid.innerHTML = membres.map(m => {
+    const initiales = esc(String(m.nom || '').split(' ').map(x => x[0] || '').join('').slice(0, 2).toUpperCase());
+    return `
+    <div class="card p-5 fade-in flex gap-4">
+      <div class="w-14 h-14 shrink-0 rounded-full flex items-center justify-center font-bold text-white serif text-lg" style="background:linear-gradient(135deg,var(--vert),#0d3a22)">${initiales}</div>
+      <div class="min-w-0">
+        <p class="text-[11px] font-bold uppercase tracking-wider" style="color:var(--or)">${esc(m.role)}</p>
+        <p class="font-bold text-lg leading-tight">${esc(m.nom)}</p>
+        ${m.profession ? `<p class="text-sm muted">${esc(m.profession)}</p>` : ''}
+        ${m.lieu ? `<p class="text-sm muted">📍 ${esc(m.lieu)}</p>` : ''}
+        ${m.tel ? `<a href="tel:${esc(telLien(m.tel))}" class="text-sm font-semibold" style="color:var(--vert)">☎ ${esc(m.tel)}</a>` : ''}
+      </div>
+    </div>`;
+  }).join('') || '<p class="muted text-sm">Aucun membre ne correspond à la recherche.</p>';
+  observerFadeIn(grid);
 
-  // Organigramme par niveaux : le 1er membre (Président) seul en tête,
-  // les 2 suivants (Vice-présidents) au 2e niveau, le reste en dernier niveau.
-  const niveaux = [membres.slice(0, 1), membres.slice(1, 3), membres.slice(3)].filter(n => n.length);
-
-  const carte = (m, i) => `
-    <button type="button" class="card org-card p-5 fade-in bureau-card text-left block w-full" data-tel="${m.tel || ''}" data-nom="${m.nom || ''}">
-      <p class="text-xs font-bold text-[var(--or)] uppercase mb-1">${m.role}</p>
-      <p class="font-bold text-lg mb-1">${m.nom}</p>
-      ${m.profession ? `<p class="text-sm text-gray-500 mb-1">${m.profession}</p>` : ''}
-      ${m.lieu ? `<p class="text-sm text-gray-500 mb-2">📍 ${m.lieu}</p>` : ''}
-      ${m.tel ? `<span class="text-sm text-[var(--vert)] font-semibold">☎ ${m.tel}</span>` : ''}
-    </button>`;
-
-  grid.innerHTML = niveaux.map(niveau => `
-    <div class="org-tier" style="grid-template-columns:repeat(${niveau.length},minmax(180px,220px));">
-      ${niveau.map(carte).join('')}
-    </div>`).join('');
-
-  grid.querySelectorAll('.bureau-card[data-tel]').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const tel = btn.dataset.tel;
-      if (!tel) return;
-      try {
-        await navigator.clipboard.writeText(tel);
-        const original = btn.style.outline;
-        btn.style.outline = '2px solid var(--vert)';
-        setTimeout(() => { btn.style.outline = original; }, 600);
-      } catch (err) { /* presse-papiers indisponible, sans conséquence */ }
-    });
-  });
-
-  // Contact section — dirigeants
-  const cd = document.getElementById('contactDirigeants');
-  cd.innerHTML = membres.filter(m => m.tel).map(m => `
-    <p><b>${m.role} — ${m.nom} :</b> <a href="tel:${m.tel}" class="text-[var(--vert)]">${m.tel}</a></p>`).join('');
+  document.getElementById('contactDirigeants').innerHTML = bureauAffiche.filter(m => m.tel).map(m => `
+    <p><b>${esc(m.role)} — ${esc(m.nom)} :</b> <a href="tel:${esc(telLien(m.tel))}" style="color:var(--vert)">${esc(m.tel)}</a></p>`).join('');
+  document.getElementById('statPubBureau').textContent = bureauAffiche.length;
 }
+document.getElementById('rechercheBureau').addEventListener('input', () => renderBureau());
 
-/* ===================== CONTENU DU SITE (piloté par l'admin) =====================
-   Le bureau exécutif, le programme et les infos générales (devise, siège,
-   coordonnées bancaires) sont d'abord affichés depuis data.js (valeurs par
-   défaut), puis remplacés en temps réel si l'administrateur les a modifiés
-   depuis le tableau de bord (collection Firestore `contenu`). Ainsi le site
-   fonctionne même avant toute configuration côté admin. */
+/* ===================== CONTENU PILOTÉ PAR L'ADMIN ===================== */
 function chargerContenuDynamique() {
-  try {
-    db.collection('contenu').doc('bureau').onSnapshot(doc => {
-      const d = doc.data();
-      if (d && Array.isArray(d.membres) && d.membres.length) renderBureau(d.membres);
-    });
-    db.collection('contenu').doc('programme').onSnapshot(doc => {
-      const d = doc.data();
-      if (d && Array.isArray(d.items) && d.items.length) renderProgramme(d.items);
-    });
-    db.collection('contenu').doc('info').onSnapshot(doc => {
-      const d = doc.data();
-      if (!d) return;
-      if (d.devise) {
-        document.getElementById('deviseNav').textContent = d.devise;
-        document.getElementById('deviseHero').textContent = d.devise.toUpperCase();
-        document.getElementById('deviseFooter').textContent = d.devise;
-      }
-      if (d.siege) {
-        document.getElementById('siegeContact').textContent = d.siege;
-        document.getElementById('siegeFooter').textContent = d.siege;
-      }
-      if (d.iban) document.getElementById('ibanVirement').textContent = d.iban;
-    });
-  } catch (err) { console.error('Contenu dynamique :', err); }
-}
-/* ===================== REGIONS / CERCLES ===================== */
-function renderRegions() {
-  const rSel = document.getElementById('aRegion');
-  Object.keys(REGIONS_MALI).forEach(r => {
-    rSel.insertAdjacentHTML('beforeend', `<option value="${r}">${r}</option>`);
-  });
-  rSel.onchange = () => {
-    const cSel = document.getElementById('aCercle');
-    cSel.innerHTML = '<option value="">Cercle / Commune</option>';
-    (REGIONS_MALI[rSel.value] || []).forEach(c => {
-      cSel.insertAdjacentHTML('beforeend', `<option value="${c}">${c}</option>`);
-    });
-  };
+  db.collection('contenu').doc('bureau').onSnapshot(doc => {
+    const d = doc.data();
+    if (d && Array.isArray(d.membres) && d.membres.length) renderBureau(d.membres);
+  }, err => console.warn('bureau :', err.message));
+
+  db.collection('contenu').doc('programme').onSnapshot(doc => {
+    const d = doc.data();
+    if (d && Array.isArray(d.items) && d.items.length) renderProgramme(d.items);
+  }, err => console.warn('programme :', err.message));
+
+  db.collection('contenu').doc('info').onSnapshot(doc => {
+    const d = doc.data() || {};
+    if (d.devise) {
+      document.getElementById('deviseNav').textContent = d.devise;
+      document.getElementById('deviseHero').textContent = d.devise.toUpperCase();
+      document.getElementById('deviseFooter').textContent = d.devise;
+    }
+    if (d.siege) {
+      document.getElementById('siegeContact').textContent = d.siege;
+      document.getElementById('siegeFooter').textContent = d.siege;
+    }
+    if (d.iban) document.getElementById('ibanVirement').textContent = d.iban;
+    if (d.orangeMoney) document.getElementById('numOrange').textContent = d.orangeMoney;
+    if (d.moovMoney) document.getElementById('numMoov').textContent = d.moovMoney;
+    if (d.wave) document.getElementById('numWave').textContent = d.wave;
+
+    const lien = safeUrl(d.lienPaiementCarte);
+    document.getElementById('carteActive').classList.toggle('hidden', !lien);
+    document.getElementById('carteInactive').classList.toggle('hidden', !!lien);
+    if (lien) document.getElementById('lienPaiementCarte').setAttribute('href', d.lienPaiementCarte.trim());
+  }, err => console.warn('info :', err.message));
+
+  // Statistiques publiques en temps réel
+  db.collection('compteurs').doc('global').onSnapshot(doc => {
+    const c = doc.data() || {};
+    document.getElementById('statPubAdh').textContent = (c.adhesions || 0).toLocaleString('fr-FR');
+  }, () => { document.getElementById('statPubAdh').textContent = '—'; });
 }
 
 /* ===================== DONS ===================== */
-let montantChoisi = 5;
-document.querySelectorAll('.montant-btn').forEach(btn => {
-  btn.onclick = () => {
-    document.querySelectorAll('.montant-btn').forEach(b => b.classList.remove('ring-2', 'ring-[var(--vert)]'));
-    btn.classList.add('ring-2', 'ring-[var(--vert)]');
-    montantChoisi = parseInt(btn.dataset.m);
-    document.getElementById('montantLibre').value = '';
-    majAffichage();
-  };
-});
-document.getElementById('montantLibre').oninput = (e) => {
-  if (e.target.value) montantChoisi = parseFloat(e.target.value);
-  majAffichage();
-};
-function majAffichage() {
-  document.getElementById('montantAffiche').textContent = `de ${montantChoisi} €`;
-  window.montantChoisi = montantChoisi; // exposé pour modern.js (onglet Mobile Money)
-}
-window.montantChoisi = montantChoisi;
-
-document.querySelectorAll('.donTab').forEach(t => {
-  t.onclick = () => {
-    document.querySelectorAll('.donTab').forEach(x => x.className = 'donTab flex-1 py-2 rounded-lg font-bold bg-gray-100');
-    t.className = 'donTab flex-1 py-2 rounded-lg font-bold btn-primary';
-    document.getElementById('formCarte').classList.toggle('hidden', t.dataset.tab !== 'carte');
-    document.getElementById('formVirement').classList.toggle('hidden', t.dataset.tab !== 'virement');
-    if (t.dataset.tab === 'virement') {
-      document.getElementById('refVirement').textContent = Date.now().toString().slice(-8);
-    }
-  };
-});
+let montantChoisi = 10;
+let moyenDon = 'carte';
+let refDon = genererReference();
 
 function genererReference() {
-  return 'ARM-' + Date.now().toString(36).toUpperCase();
+  return 'DON-ARM-' + Date.now().toString(36).toUpperCase().slice(-6);
+}
+function majAffichageDon() {
+  document.querySelectorAll('.montantAffiche').forEach(el => el.textContent = montantChoisi + ' €');
+  document.querySelectorAll('.refDon').forEach(el => el.textContent = refDon);
 }
 
-document.getElementById('formCarte').addEventListener('submit', async (e) => {
+document.querySelectorAll('.montant-btn').forEach(btn => {
+  btn.onclick = () => {
+    document.querySelectorAll('.montant-btn').forEach(b => b.classList.remove('actif'));
+    btn.classList.add('actif');
+    montantChoisi = parseInt(btn.dataset.m, 10);
+    document.getElementById('montantLibre').value = '';
+    majAffichageDon();
+  };
+});
+document.getElementById('montantLibre').addEventListener('input', (e) => {
+  const v = Math.round(parseFloat(e.target.value));
+  if (v > 0 && v <= 100000) {
+    montantChoisi = v;
+    document.querySelectorAll('.montant-btn').forEach(b => b.classList.remove('actif'));
+    majAffichageDon();
+  }
+});
+
+document.querySelectorAll('.tab-don').forEach(t => {
+  t.onclick = () => {
+    moyenDon = t.dataset.tab;
+    document.querySelectorAll('.tab-don').forEach(x => x.classList.toggle('actif', x === t));
+    document.getElementById('panneauCarte').classList.toggle('hidden', moyenDon !== 'carte');
+    document.getElementById('panneauMobile').classList.toggle('hidden', moyenDon !== 'mobile');
+    document.getElementById('panneauVirement').classList.toggle('hidden', moyenDon !== 'virement');
+    document.getElementById('formDeclarationDon').classList.toggle('hidden', moyenDon === 'carte');
+    document.getElementById('donConfirm').classList.add('hidden');
+  };
+});
+
+document.getElementById('formDeclarationDon').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const ref = genererReference();
+  const bouton = e.target.querySelector('button');
+  bouton.disabled = true;
   const don = {
     montant: montantChoisi,
-    methode: 'carte',
-    nom: document.getElementById('donNom').value,
-    email: document.getElementById('donEmail').value,
-    reference: ref,
-    statut: 'simulé - à confirmer', // aucun vrai encaissement n'est effectué ici
+    methode: moyenDon === 'mobile' ? 'mobile_money' : 'virement_bms',
+    nom: document.getElementById('donNom').value.trim(),
+    contact: document.getElementById('donContact').value.trim(),
+    reference: refDon,
+    statut: 'en attente',      // l'admin confirme à réception des fonds
     createdAt: Date.now()
   };
   try {
     await db.collection('dons').add(don);
-    await db.collection('compteurs').doc('global').set(
-      { donsTotal: firebase.firestore.FieldValue.increment(don.montant) }, { merge: true }
-    );
-  } catch (err) { console.error(err); }
-  afficherConfirmationDon(ref, don.montant);
-  e.target.reset();
+    const box = document.getElementById('donConfirm');
+    box.classList.remove('hidden');
+    box.innerHTML = `✅ Merci <b>${esc(don.nom)}</b> ! Votre don de <b>${don.montant} €</b> est enregistré sous la référence <b>${esc(don.reference)}</b>. Il sera confirmé par la trésorerie dès réception des fonds.`;
+    e.target.reset();
+    refDon = genererReference();
+    majAffichageDon();
+  } catch (err) {
+    console.error(err);
+    toast("L'enregistrement a échoué. Vérifiez votre connexion et réessayez.", 'erreur');
+  }
+  bouton.disabled = false;
 });
 
-document.getElementById('btnVirementFait').addEventListener('click', async () => {
-  const ref = 'DON-ARM-' + document.getElementById('refVirement').textContent;
-  try {
-    await db.collection('dons').add({
-      montant: montantChoisi, methode: 'virement_bms', reference: ref,
-      statut: 'en attente de confirmation', createdAt: Date.now()
-    });
-    await db.collection('compteurs').doc('global').set(
-      { donsTotal: firebase.firestore.FieldValue.increment(montantChoisi) }, { merge: true }
-    );
-  } catch (err) { console.error(err); }
-  afficherConfirmationDon(ref, montantChoisi);
-});
+/* ===================== ADHÉSION EN 3 ÉTAPES ===================== */
+let etapeAdhesion = 1;
 
-function afficherConfirmationDon(ref, montant) {
-  const box = document.getElementById('donConfirm');
-  box.classList.remove('hidden');
-  box.innerHTML = `✅ Merci pour votre don de <b>${montant} €</b> ! Référence : <b>${ref}</b>. Un reçu vous sera envoyé après confirmation par l'administrateur.`;
+function renderRegions() {
+  const rSel = document.getElementById('aRegion');
+  Object.keys(REGIONS_MALI).forEach(r => rSel.insertAdjacentHTML('beforeend', `<option value="${esc(r)}">${esc(r)}</option>`));
+  rSel.onchange = () => {
+    const cSel = document.getElementById('aCercle');
+    cSel.innerHTML = '<option value="">Cercle / Commune</option>';
+    (REGIONS_MALI[rSel.value] || []).forEach(c => cSel.insertAdjacentHTML('beforeend', `<option value="${esc(c)}">${esc(c)}</option>`));
+  };
+  document.getElementById('statPubRegions').textContent = Object.keys(REGIONS_MALI).length;
 }
 
-/* ===================== ADHESION ===================== */
+function afficherEtape(n) {
+  etapeAdhesion = n;
+  document.querySelectorAll('#formAdhesion .etape').forEach(el => el.classList.toggle('hidden', +el.dataset.etape !== n));
+  document.querySelectorAll('.etape-dot').forEach(d => {
+    const i = +d.dataset.dot;
+    d.classList.toggle('actif', i === n);
+    d.classList.toggle('fait', i < n);
+  });
+  document.getElementById('btnPrecedent').classList.toggle('invisible', n === 1);
+  document.getElementById('btnSuivant').classList.toggle('hidden', n === 3);
+  document.getElementById('btnEnvoyerAdhesion').classList.toggle('hidden', n !== 3);
+  document.getElementById('adhesionErreur').classList.add('hidden');
+  if (n === 3) {
+    const v = id => document.getElementById(id).value.trim();
+    document.getElementById('recapAdhesion').innerHTML = `
+      <p class="font-semibold mb-1">Récapitulatif</p>
+      <p>${esc(v('aPrenom'))} ${esc(v('aNom'))} · ${esc(v('aTel'))}${v('aEmail') ? ' · ' + esc(v('aEmail')) : ''}</p>
+      <p>${esc(v('aRegion'))}${v('aCercle') ? ' — ' + esc(v('aCercle')) : ''}${v('aQuartier') ? ' — ' + esc(v('aQuartier')) : ''}</p>`;
+  }
+}
+
+function erreurAdhesion(msg) {
+  const el = document.getElementById('adhesionErreur');
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+function etapeValide(n) {
+  const v = id => document.getElementById(id).value.trim();
+  if (n === 1) {
+    if (!v('aNom') || !v('aPrenom') || !v('aTel')) { erreurAdhesion('Merci de renseigner votre nom, prénom et téléphone.'); return false; }
+    if (v('aEmail') && !/^\S+@\S+\.\S+$/.test(v('aEmail'))) { erreurAdhesion("L'adresse email n'est pas valide."); return false; }
+  }
+  if (n === 2 && !v('aRegion')) { erreurAdhesion('Merci de choisir votre région.'); return false; }
+  return true;
+}
+
+document.getElementById('btnSuivant').onclick = () => { if (etapeValide(etapeAdhesion)) afficherEtape(etapeAdhesion + 1); };
+document.getElementById('btnPrecedent').onclick = () => afficherEtape(Math.max(1, etapeAdhesion - 1));
+
 document.getElementById('formAdhesion').addEventListener('submit', async (e) => {
   e.preventDefault();
+  if (!document.getElementById('aConsent').checked) { erreurAdhesion('Merci de cocher la case de consentement.'); return; }
+  const v = id => document.getElementById(id).value.trim();
   const data = {
-    nom: aNom.value, prenom: aPrenom.value, tel: aTel.value, email: aEmail.value,
-    profession: aProfession.value, pays: aPays.value, region: aRegion.value,
-    cercle: aCercle.value, quartier: aQuartier.value, message: aMessage.value,
+    nom: v('aNom'), prenom: v('aPrenom'), tel: v('aTel'), email: v('aEmail'),
+    profession: v('aProfession'), pays: v('aPays'), region: v('aRegion'),
+    cercle: v('aCercle'), quartier: v('aQuartier'), message: v('aMessage'),
     statut: 'en attente', createdAt: Date.now()
   };
+  const bouton = document.getElementById('btnEnvoyerAdhesion');
+  bouton.disabled = true;
   try {
     await db.collection('adhesions').add(data);
-    await db.collection('compteurs').doc('global').set(
-      { adhesions: firebase.firestore.FieldValue.increment(1) }, { merge: true }
-    );
-  } catch (err) { console.error(err); }
-  document.getElementById('adhesionConfirm').classList.remove('hidden');
-  document.getElementById('adhesionConfirm').innerHTML = `✅ Merci ${data.prenom} ! Votre demande d'adhésion a bien été reçue et sera validée par l'administration du parti.`;
-  e.target.reset();
+    db.collection('compteurs').doc('global').set({ adhesions: inc(1) }, { merge: true }).catch(() => {});
+    const box = document.getElementById('adhesionConfirm');
+    box.classList.remove('hidden');
+    box.innerHTML = `✅ Merci <b>${esc(data.prenom)}</b> ! Votre demande d'adhésion a bien été reçue. Elle sera validée par l'administration du parti.`;
+    e.target.reset();
+    document.getElementById('aCercle').innerHTML = '<option value="">Cercle / Commune</option>';
+    afficherEtape(1);
+  } catch (err) {
+    console.error(err);
+    erreurAdhesion("L'envoi a échoué. Vérifiez votre connexion et réessayez.");
+  }
+  bouton.disabled = false;
 });
 
-/* ===================== ACTUALITES & EVENEMENTS (défilement infini + recherche + partage) ===================== */
-let actualitesDefilement = null;
-function creerCarteActualite(a) {
-  const urlPartage = location.href.split('#')[0] + '#actualites';
+/* ===================== ACTUALITÉS (défilement infini + recherche + partage) ===================== */
+let actusChargees = [];
+
+function carteActu(id, a) {
+  const contenu = String(a.contenu || '');
+  const visio = safeUrl(a.lienVisio);
+  const image = safeUrl(a.image);
   return `
-    <div class="card overflow-hidden fade-in actu-card">
-      ${a.image ? `<img src="${a.image}" class="w-full h-40 object-cover">` : ''}
-      <div class="p-4">
-        <p class="text-xs text-gray-400 mb-1">${a.date || ''}</p>
-        <h3 class="font-bold mb-2">${a.titre || ''}</h3>
-        <p class="text-sm text-gray-500 mb-2">${(a.contenu || '').slice(0, 140)}${(a.contenu || '').length > 140 ? '…' : ''}</p>
-        ${a.lienVisio ? `<a href="${a.lienVisio}" target="_blank" class="text-sm font-bold text-[var(--vert)]">🎥 Rejoindre la visioconférence</a>` : ''}
-        ${a.lieu ? `<p class="text-xs text-gray-400 mt-1">📍 ${a.lieu}</p>` : ''}
-        <button type="button" class="share-btn mt-3 text-xs font-bold text-gray-400 hover:text-[var(--vert)]"
-          data-titre="${(a.titre || '').replace(/"/g, '&quot;')}" data-url="${urlPartage}">📤 Partager</button>
+    <article class="card overflow-hidden fade-in flex flex-col" id="actu-${esc(id)}">
+      ${image ? `<img src="${image}" alt="" loading="lazy" class="w-full h-44 object-cover">` : ''}
+      <div class="p-5 flex-1 flex flex-col">
+        <p class="text-xs muted mb-1">${esc(a.date || '')}${a.lieu ? ' · 📍 ' + esc(a.lieu) : ''}</p>
+        <h3 class="serif font-bold text-lg mb-2 leading-snug">${esc(a.titre || '')}</h3>
+        <p class="text-sm muted line-clamp-3 mb-4">${esc(contenu)}</p>
+        <div class="mt-auto flex flex-wrap items-center gap-3">
+          ${visio ? `<a href="${visio}" target="_blank" rel="noopener" class="text-sm font-bold" style="color:var(--vert)">🎥 Rejoindre la visio</a>` : ''}
+          <button type="button" class="text-sm font-semibold muted ml-auto" data-partage="${esc(id)}">↗ Partager</button>
+        </div>
       </div>
-    </div>`;
+    </article>`;
 }
-function chargerActualites() {
+
+function renderActus() {
+  const q = (document.getElementById('rechercheActu').value || '').trim().toLowerCase();
+  const liste = q
+    ? actusChargees.filter(({ a }) => [a.titre, a.contenu, a.lieu].join(' ').toLowerCase().includes(q))
+    : actusChargees;
   const grid = document.getElementById('actualitesGrid');
-  const sentinel = document.getElementById('actualitesSentinel');
-  try {
-    actualitesDefilement = creerDefilementInfini({
-      collection: db.collection('actualites'),
-      orderBy: ['createdAt', 'desc'],
-      pageSize: 9,
-      sentinel,
-      onPage: (docs, premierePage) => {
-        if (premierePage) grid.innerHTML = '';
-        if (premierePage && !docs.length) { grid.innerHTML = '<p class="text-gray-400 text-sm">Aucune actualité pour le moment.</p>'; return; }
-        docs.forEach(doc => grid.insertAdjacentHTML('beforeend', creerCarteActualite(doc.data())));
-        observerFadeIn();
-        if (typeof filtrerActualites === 'function') filtrerActualites();
-      }
-    });
-    actualitesDefilement.demarrer();
-  } catch (err) {
-    grid.innerHTML = '<p class="text-gray-400 text-sm">Connecte Firebase pour afficher les actualités.</p>';
+  grid.innerHTML = liste.map(({ id, a }) => carteActu(id, a)).join('')
+    || `<p class="muted text-sm">${q ? 'Aucune actualité ne correspond à la recherche.' : ''}</p>`;
+  observerFadeIn(grid);
+}
+
+document.getElementById('rechercheActu').addEventListener('input', renderActus);
+
+document.getElementById('actualitesGrid').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-partage]');
+  if (!btn) return;
+  const item = actusChargees.find(x => x.id === btn.dataset.partage);
+  if (!item) return;
+  const url = location.origin + location.pathname + '#actu-' + item.id;
+  const texte = (item.a.titre || 'Actualité A.R.M') + ' — A.R.M';
+  if (navigator.share) {
+    try { await navigator.share({ title: texte, url }); } catch (err) {}
+  } else {
+    window.open('https://wa.me/?text=' + encodeURIComponent(texte + ' ' + url), '_blank', 'noopener');
   }
+});
+
+function chargerActualites() {
+  const liste = creerDefilementInfini({
+    collection: db.collection('actualites'),
+    orderBy: ['createdAt', 'desc'],
+    pageSize: 9,
+    sentinel: document.getElementById('sentinelActu'),
+    texteVide: 'Aucune actualité pour le moment.',
+    onPage: (docs, premiere) => {
+      if (premiere) actusChargees = [];
+      docs.forEach(d => actusChargees.push({ id: d.id, a: d.data() }));
+      renderActus();
+    }
+  });
+  liste.demarrer();
 }
 
 /* ===================== CHAT PUBLIC ===================== */
 function initChat() {
   const box = document.getElementById('chatBox');
   try {
-    db.collection('chat').orderBy('createdAt', 'asc').limitToLast(50).onSnapshot(snap => {
-      box.innerHTML = '';
-      snap.forEach(doc => {
-        const m = doc.data();
-        box.insertAdjacentHTML('beforeend', `
-          <div class="text-sm bg-gray-50 rounded-lg px-3 py-2">
-            <span class="font-bold text-[var(--vert)]">${m.nom} :</span> ${m.message}
-          </div>`);
-      });
-      box.scrollTop = box.scrollHeight;
-    });
-  } catch (err) { console.error(err); }
+    const nomMemo = localStorage.getItem('arm-chat-nom');
+    if (nomMemo) document.getElementById('chatNom').value = nomMemo;
+  } catch (e) {}
+
+  db.collection('chat').orderBy('createdAt', 'asc').limitToLast(50).onSnapshot(snap => {
+    box.innerHTML = snap.docs.map(doc => {
+      const m = doc.data();
+      return `<div class="bulle"><span class="font-bold" style="color:var(--vert)">${esc(m.nom)}</span>
+        <span class="text-[11px] muted ml-1">${esc(formatDate(m.createdAt))}</span><br>${esc(m.message)}</div>`;
+    }).join('') || '<p class="text-sm muted text-center mt-8">Soyez le premier à écrire un message.</p>';
+    box.scrollTop = box.scrollHeight;
+  }, err => {
+    console.warn('chat :', err.message);
+    box.innerHTML = '<p class="text-sm muted text-center mt-8">Le chat est momentanément indisponible.</p>';
+  });
 }
 
 document.getElementById('chatForm').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const nom = chatNom.value.trim(), message = chatMsg.value.trim();
+  const nom = document.getElementById('chatNom').value.trim().slice(0, 40);
+  const message = document.getElementById('chatMsg').value.trim().slice(0, 500);
   if (!nom || !message) return;
+  try { localStorage.setItem('arm-chat-nom', nom); } catch (err) {}
   try {
     await db.collection('chat').add({ nom, message, createdAt: Date.now() });
-  } catch (err) { console.error(err); }
-  chatMsg.value = '';
+    document.getElementById('chatMsg').value = '';
+  } catch (err) {
+    console.error(err);
+    toast("Message non envoyé. Réessayez.", 'erreur');
+  }
 });
 
 /* ===================== CONTACT ===================== */
 document.getElementById('formContact').addEventListener('submit', async (e) => {
   e.preventDefault();
-  const data = {
-    nom: cNom.value, email: cEmail.value, sujet: cSujet.value,
-    message: cMessage.value, lu: false, createdAt: Date.now()
-  };
+  const v = id => document.getElementById(id).value.trim();
+  const data = { nom: v('cNom'), email: v('cEmail'), sujet: v('cSujet'), message: v('cMessage'), lu: false, createdAt: Date.now() };
+  const bouton = e.target.querySelector('button');
+  bouton.disabled = true;
   try {
     await db.collection('messages').add(data);
-    await db.collection('compteurs').doc('global').set(
-      { messages: firebase.firestore.FieldValue.increment(1) }, { merge: true }
-    );
-  } catch (err) { console.error(err); }
-  document.getElementById('contactConfirm').classList.remove('hidden');
-  document.getElementById('contactConfirm').textContent = '✅ Message envoyé. Nous vous répondrons rapidement.';
-  e.target.reset();
+    db.collection('compteurs').doc('global').set({ messages: inc(1) }, { merge: true }).catch(() => {});
+    toast('✅ Message envoyé. Nous vous répondrons rapidement.');
+    e.target.reset();
+  } catch (err) {
+    console.error(err);
+    toast("L'envoi a échoué. Réessayez.", 'erreur');
+  }
+  bouton.disabled = false;
 });
 
-/* ===================== INSTALLATION PWA ===================== */
-let deferredPrompt;
+/* ===================== INSTALLATION (PWA) ===================== */
+let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', (e) => {
   e.preventDefault();
   deferredPrompt = e;
@@ -315,22 +410,15 @@ document.getElementById('installBtn').addEventListener('click', async () => {
   document.getElementById('installBtn').classList.add('hidden');
 });
 if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
-  });
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
 }
 
-/* ===================== ANIMATIONS AU SCROLL ===================== */
-const obs = new IntersectionObserver(entries => {
-  entries.forEach(en => { if (en.isIntersecting) en.target.classList.add('show'); });
-}, { threshold: .15 });
-function observerFadeIn() { document.querySelectorAll('.fade-in').forEach(el => obs.observe(el)); }
-
-/* ===================== INIT ===================== */
+/* ===================== DÉMARRAGE ===================== */
 renderProgramme();
 renderBureau();
-chargerContenuDynamique();
 renderRegions();
+majAffichageDon();
+chargerContenuDynamique();
 chargerActualites();
 initChat();
-setTimeout(observerFadeIn, 300);
+observerFadeIn();

@@ -1,777 +1,589 @@
+/* =========================================================================
+   A.R.M — TABLEAU DE BORD ADMINISTRATEUR
+   - Connexion par mot de passe unique (email technique fixe ADMIN_EMAIL_FIXE
+     dans data.js). La vraie protection des données est assurée par les
+     règles Firestore/Storage qui exigent un compte connecté.
+   - Tous les écouteurs de formulaires sont attachés UNE seule fois au
+     chargement (corrige les publications en double après reconnexion).
+   - Tout contenu affiché passe par esc() (protection contre l'injection
+     de code depuis le chat ou les formulaires publics).
+   ========================================================================= */
+
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const auth = firebase.auth();
 const storage = firebase.storage();
+const inc = (n) => firebase.firestore.FieldValue.increment(n);
+const $ = (id) => document.getElementById(id);
 
-// Initialiser les gestionnaires avancés
-const analyticsManager = new ARM.AnalyticsManager(db);
-const roleManager = new ARM.RoleManager(db);
-const rateLimiter = new ARM.RateLimiter(10, 60000);
-const cacheManager = new ARM.CacheManager();
-
-/* ===================== LOGO ===================== */
 document.querySelectorAll('.arm-logo').forEach(img => { img.src = LOGO_DATA_URI; });
 
 /* ===================== AUTHENTIFICATION ===================== */
-document.getElementById('loginForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const err = document.getElementById('loginErr');
-  err.classList.remove('show');
-  
-  if (!rateLimiter.peutFaire()) {
-    err.textContent = "Trop de tentatives. Attendez quelques secondes.";
-    err.classList.add('show');
-    return;
-  }
-
-  try {
-    await auth.signInWithEmailAndPassword(ADMIN_EMAIL_FIXE, loginPass.value);
-  } catch (ex) {
-    err.textContent = "Mot de passe incorrect.";
-    err.classList.add('show');
-  }
-});
-
-document.getElementById('logoutBtn').onclick = () => auth.signOut();
-
+let tableauDemarre = false;
 let listesActives = [];
-auth.onAuthStateChanged(async user => {
+
+$('loginForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const err = $('loginErr');
+  const bouton = e.target.querySelector('button');
+  err.classList.add('hidden');
+  bouton.disabled = true;
+  try {
+    await auth.signInWithEmailAndPassword(ADMIN_EMAIL_FIXE, $('loginPass').value);
+    $('loginPass').value = '';
+  } catch (ex) {
+    err.textContent = (ex && ex.code === 'auth/too-many-requests')
+      ? 'Trop de tentatives. Patiente quelques minutes avant de réessayer.'
+      : 'Mot de passe incorrect.';
+    err.classList.remove('hidden');
+  }
+  bouton.disabled = false;
+});
+
+$('logoutBtn').onclick = async () => {
+  await auth.signOut();
+  location.reload();   // repart d'une page propre
+};
+
+auth.onAuthStateChanged(user => {
   if (user) {
-    document.getElementById('loginScreen').classList.add('hidden');
-    document.getElementById('dashboard').classList.remove('hidden');
-    roleManager.définirRôle('admin');
-    await demarrerTout();
+    $('loginScreen').classList.add('hidden');
+    $('dashboard').classList.remove('hidden');
+    if (!tableauDemarre) { tableauDemarre = true; demarrerTout(); }
+  } else if (tableauDemarre) {
+    location.reload();   // session expirée en cours d'utilisation
   } else {
-    document.getElementById('dashboard').classList.add('hidden');
-    document.getElementById('loginScreen').classList.remove('hidden');
-    listesActives.forEach(l => l.arreter?.());
-    listesActives = [];
-    roleManager.définirRôle('viewer');
+    $('dashboard').classList.add('hidden');
+    $('loginScreen').classList.remove('hidden');
   }
 });
 
-/* ===================== NAVIGATION ONGLETS ===================== */
+/* ===================== ONGLETS ===================== */
 let galerieInitialisee = false;
 document.querySelectorAll('.tab-btn').forEach(btn => {
   btn.onclick = () => {
-    // Désactiver les autres onglets
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    
-    // Masquer tous les contenu
-    document.querySelectorAll('.tab-content').forEach(s => s.classList.remove('active'));
-    
-    // Afficher le bon contenu
-    const tabId = 'tab-' + btn.dataset.tab;
-    const tabContent = document.getElementById(tabId);
-    if (tabContent) {
-      tabContent.classList.add('active');
-      
-      // Initialiser la galerie à la première visite
-      if (btn.dataset.tab === 'galerie' && !galerieInitialisee) {
-        galerieInitialisee = true;
-        const g = initGalerieMedias({
-          db, storage,
-          inputEl: document.getElementById('galerieInput'),
-          progressEl: document.getElementById('galerieProgress'),
-          gridEl: document.getElementById('galerieGrid'),
-          sentinelEl: document.getElementById('sentinelGalerie')
-        });
-        listesActives.push(g);
-      }
+    document.querySelectorAll('.tab-btn').forEach(b => { b.classList.remove('active'); b.classList.add('bg-gray-200'); });
+    btn.classList.add('active'); btn.classList.remove('bg-gray-200');
+    document.querySelectorAll('.tab-content').forEach(s => s.classList.add('hidden'));
+    $('tab-' + btn.dataset.tab).classList.remove('hidden');
+    if (btn.dataset.tab === 'galerie' && !galerieInitialisee) {
+      galerieInitialisee = true;
+      listesActives.push(initGalerieMedias({
+        db, storage,
+        inputEl: $('galerieInput'), progressEl: $('galerieProgress'),
+        gridEl: $('galerieGrid'), sentinelEl: $('sentinelGalerie')
+      }));
     }
   };
 });
 
-async function demarrerTout() {
+function demarrerTout() {
   demarrerCompteurs();
   demarrerAdhesions();
   demarrerDons();
-  chargerActualitesAdmin();
-  chargerMessages();
+  demarrerActualites();
+  demarrerMessages();
   demarrerChat();
   demarrerArmtv();
   demarrerContenu();
-  configurerExport();
 }
 
-/* ===================== COMPTEURS GLOBAUX ===================== */
+function pill(statut) {
+  const ok = ['validé', 'confirmé', 'approuvé'].includes(statut);
+  const ko = ['refusé'].includes(statut);
+  const cls = ok ? 'bg-green-100 text-green-700' : ko ? 'bg-red-100 text-red-700' : 'bg-yellow-100 text-yellow-700';
+  return `<span class="pill ${cls}">${esc(statut || 'en attente')}</span>`;
+}
+
+async function action(promesse, messageOk) {
+  try { await promesse; if (messageOk) toast(messageOk); return true; }
+  catch (err) { console.error(err); toast('Action impossible : ' + (err.message || err), 'erreur'); return false; }
+}
+
+/* ===================== STATISTIQUES ===================== */
 function demarrerCompteurs() {
   const off = db.collection('compteurs').doc('global').onSnapshot(doc => {
     const c = doc.data() || {};
-    document.getElementById('statAdh').textContent = c.adhesions || 0;
-    document.getElementById('statDons').textContent = (c.donsTotal || 0) + ' €';
-    document.getElementById('statMsg').textContent = c.messages || 0;
+    $('statAdh').textContent = (c.adhesions || 0).toLocaleString('fr-FR');
+    $('statDons').textContent = (c.donsTotal || 0).toLocaleString('fr-FR') + ' €';
+    $('statMsg').textContent = (c.messages || 0).toLocaleString('fr-FR');
     dessinerGraphique(c);
-  });
+  }, err => console.warn(err.message));
   listesActives.push({ arreter: off });
 }
 
-/* ===================== ADHÉSIONS (défilement infini) ===================== */
+let chartInst = null;
+function dessinerGraphique(c) {
+  const ctx = $('chartAdh');
+  if (!ctx || typeof Chart === 'undefined') return;
+  const data = [c.adhesions || 0, c.donsTotal || 0, c.messages || 0];
+  if (chartInst) { chartInst.data.datasets[0].data = data; chartInst.update(); return; }
+  chartInst = new Chart(ctx, {
+    type: 'bar',
+    data: { labels: ['Adhésions', 'Dons confirmés (€)', 'Messages'],
+            datasets: [{ data, backgroundColor: ['#0f7a3d', '#e9a800', '#c1272d'], borderRadius: 6 }] },
+    options: { responsive: true, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+  });
+}
+
+/* ===================== ADHÉSIONS ===================== */
+let listeAdhesions;
 function demarrerAdhesions() {
-  const tbody = document.getElementById('tblAdhesions');
-  const liste = creerDefilementInfini({
-    collection: db.collection('adhesions'),
-    orderBy: ['createdAt', 'desc'],
-    pageSize: 25,
-    sentinel: document.getElementById('sentinelAdhesions'),
-    onPage: (docs, estPremierePage) => {
-      if (estPremierePage) tbody.innerHTML = '';
+  const tbody = $('tblAdhesions');
+  listeAdhesions = creerDefilementInfini({
+    collection: db.collection('adhesions'), orderBy: ['createdAt', 'desc'], pageSize: 25,
+    sentinel: $('sentinelAdhesions'),
+    onPage: (docs, premiere) => {
+      if (premiere) tbody.innerHTML = '';
       docs.forEach(doc => {
         const a = doc.data();
-        const pill = a.statut === 'validé' ? 'pill-success' : a.statut === 'refusé' ? 'pill-danger' : 'pill-warning';
         tbody.insertAdjacentHTML('beforeend', `
-          <tr>
-            <td>
-              <strong>${a.prenom || ''} ${a.nom || ''}</strong><br>
-              <span style="color: var(--text-soft); font-size: 0.9rem;">${a.email || 'N/A'}</span>
-            </td>
-            <td><a href="tel:${a.tel}" style="color: var(--vert); text-decoration: none;">☎ ${a.tel || 'N/A'}</a></td>
-            <td>${a.region || 'N/A'}</td>
-            <td>${a.cercle || 'N/A'}</td>
-            <td><span class="pill ${pill}">${a.statut || 'en attente'}</span></td>
-            <td>
-              <button class="btn btn-primary btn-small" onclick="majAdhesion('${doc.id}','validé')">✔ Valider</button>
-              <button class="btn btn-danger btn-small" onclick="majAdhesion('${doc.id}','refusé')">✖ Refuser</button>
-              <button class="btn btn-secondary btn-small" onclick="supprAdhesion('${doc.id}')">🗑 Supprimer</button>
+          <tr data-id="${doc.id}">
+            <td><b>${esc(a.prenom)} ${esc(a.nom)}</b><br><span class="text-gray-400">${esc(a.email)}</span>
+              ${a.profession ? `<br><span class="text-gray-400">${esc(a.profession)}</span>` : ''}
+              ${a.message ? `<br><i class="text-gray-500">« ${esc(a.message)} »</i>` : ''}</td>
+            <td><a class="text-green-700" href="tel:${esc(telLien(a.tel))}">${esc(a.tel)}</a></td>
+            <td>${esc(a.region)}${a.pays ? '<br><span class="text-gray-400">' + esc(a.pays) + '</span>' : ''}</td>
+            <td>${esc(a.cercle)}${a.quartier ? '<br><span class="text-gray-400">' + esc(a.quartier) + '</span>' : ''}</td>
+            <td class="whitespace-nowrap text-gray-500">${esc(formatDate(a.createdAt))}</td>
+            <td>${pill(a.statut)}</td>
+            <td class="whitespace-nowrap">
+              <button class="text-green-700 font-bold mr-2" data-act="valider">✔ Valider</button>
+              <button class="text-red-600 font-bold mr-2" data-act="refuser">✖ Refuser</button>
+              <button class="text-gray-500 font-bold" data-act="supprimer" title="Supprimer">🗑</button>
             </td>
           </tr>`);
       });
     }
   });
-  liste.demarrer();
-  listesActives.push(liste);
+  listeAdhesions.demarrer();
+  listesActives.push(listeAdhesions);
 }
-
-function majAdhesion(id, statut) {
-  db.collection('adhesions').doc(id).update({ statut }).catch(err => console.error(err));
-}
-
-function supprAdhesion(id) {
-  if (confirm('Êtes-vous sûr de vouloir supprimer cette adhésion ?')) {
-    db.collection('adhesions').doc(id).delete().catch(err => console.error(err));
-  }
-}
-
-/* ===================== DONS (défilement infini) ===================== */
-function demarrerDons() {
-  const tbody = document.getElementById('tblDons');
-  const liste = creerDefilementInfini({
-    collection: db.collection('dons'),
-    orderBy: ['createdAt', 'desc'],
-    pageSize: 25,
-    sentinel: document.getElementById('sentinelDons'),
-    onPage: (docs, estPremierePage) => {
-      if (estPremierePage) tbody.innerHTML = '';
-      docs.forEach(doc => {
-        const d = doc.data();
-        const pill = d.statut === 'confirmé' ? 'pill-success' : 'pill-warning';
-        tbody.insertAdjacentHTML('beforeend', `
-          <tr>
-            <td><strong>${d.montant || 0} €</strong></td>
-            <td>${d.methode === 'carte' ? '💳 Carte' : '🏦 Virement BMS'}</td>
-            <td>
-              <strong>${d.nom || d.reference || 'N/A'}</strong><br>
-              <span style="color: var(--text-soft); font-size: 0.9rem;">Ref: ${d.reference || 'N/A'}</span>
-            </td>
-            <td><span class="pill ${pill}">${d.statut || 'en attente'}</span></td>
-            <td>
-              <button class="btn btn-primary btn-small" onclick="confirmerDon('${doc.id}')">✔ Confirmer</button>
-              <button class="btn btn-secondary btn-small" onclick="supprDon('${doc.id}')">🗑 Supprimer</button>
-            </td>
-          </tr>`);
-      });
-    }
-  });
-  liste.demarrer();
-  listesActives.push(liste);
-}
-
-function confirmerDon(id) {
-  db.collection('dons').doc(id).update({ statut: 'confirmé' }).catch(err => console.error(err));
-}
-
-function supprDon(id) {
-  if (confirm('Êtes-vous sûr de vouloir supprimer ce don ?')) {
-    db.collection('dons').doc(id).delete().catch(err => console.error(err));
-  }
-}
-
-/* ===================== ACTUALITÉS / ÉVÉNEMENTS ===================== */
-let actuEnEdition = null;
-
-document.getElementById('formActu').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  
-  if (!roleManager.possèdePermission('écrire')) {
-    alert('Vous n\'avez pas la permission d\'écrire.');
-    return;
-  }
-
-  const data = {
-    titre: document.getElementById('actuTitre').value,
-    date: document.getElementById('actuDate').value,
-    image: document.getElementById('actuImage').value,
-    lienVisio: document.getElementById('actuLien').value,
-    lieu: document.getElementById('actuLieu').value,
-    contenu: document.getElementById('actuContenu').value
-  };
-
-  try {
-    if (actuEnEdition) {
-      await db.collection('actualites').doc(actuEnEdition).update(data);
-      actuEnEdition = null;
-      document.getElementById('actuBtnSubmit').textContent = 'Publier l\'Actualité';
-    } else {
-      await db.collection('actualites').add({ ...data, createdAt: Date.now() });
-    }
-    e.target.reset();
-    ARM.Utils.debounce(() => chargerActualitesAdmin(), 500)();
-  } catch (err) {
-    console.error('Erreur publication actualité:', err);
-    alert('Erreur lors de la publication.');
+$('tblAdhesions').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const id = b.closest('tr').dataset.id;
+  const ref = db.collection('adhesions').doc(id);
+  if (b.dataset.act === 'supprimer') {
+    if (!confirm('Supprimer définitivement cette adhésion ?')) return;
+    const batch = db.batch();
+    batch.delete(ref);
+    batch.set(db.collection('compteurs').doc('global'), { adhesions: inc(-1) }, { merge: true });
+    if (await action(batch.commit(), 'Adhésion supprimée')) b.closest('tr').remove();
+  } else {
+    const statut = b.dataset.act === 'valider' ? 'validé' : 'refusé';
+    if (await action(ref.update({ statut }), 'Adhésion ' + statut + 'e')) b.closest('tr').children[5].innerHTML = pill(statut);
   }
 });
 
-function actuModifier(id, titre, date, image, lienVisio, lieu, contenu) {
-  actuEnEdition = id;
-  document.getElementById('actuTitre').value = titre;
-  document.getElementById('actuDate').value = date || '';
-  document.getElementById('actuImage').value = image || '';
-  document.getElementById('actuLien').value = lienVisio || '';
-  document.getElementById('actuLieu').value = lieu || '';
-  document.getElementById('actuContenu').value = contenu || '';
-  document.getElementById('actuBtnSubmit').textContent = 'Enregistrer la Modification';
-  document.getElementById('formActu').scrollIntoView({ behavior: 'smooth' });
+/* ===================== DONS =====================
+   Le total "Dons confirmés" n'augmente que lorsque l'admin confirme un don
+   (argent réellement reçu), et diminue si la confirmation est annulée ou
+   si un don confirmé est supprimé. */
+const donsCache = {};
+let listeDons;
+function ligneDon(id, d) {
+  const methodes = { carte: '💳 Carte', mobile_money: '📱 Mobile Money', virement_bms: '🏦 Virement BMS' };
+  const confirme = d.statut === 'confirmé';
+  return `
+    <tr data-id="${id}">
+      <td><b>${esc(d.montant)} €</b></td>
+      <td>${methodes[d.methode] || esc(d.methode)}</td>
+      <td>${esc(d.nom)}${d.contact ? '<br><span class="text-gray-400">' + esc(d.contact) + '</span>' : ''}</td>
+      <td class="text-gray-500">${esc(d.reference)}</td>
+      <td class="whitespace-nowrap text-gray-500">${esc(formatDate(d.createdAt))}</td>
+      <td>${pill(d.statut)}</td>
+      <td class="whitespace-nowrap">
+        ${confirme
+          ? '<button class="text-yellow-700 font-bold mr-2" data-act="annuler">↺ Annuler</button>'
+          : '<button class="text-green-700 font-bold mr-2" data-act="confirmer">✔ Confirmer</button>'}
+        <button class="text-gray-500 font-bold" data-act="supprimer" title="Supprimer">🗑</button>
+      </td>
+    </tr>`;
 }
+function demarrerDons() {
+  const tbody = $('tblDons');
+  listeDons = creerDefilementInfini({
+    collection: db.collection('dons'), orderBy: ['createdAt', 'desc'], pageSize: 25,
+    sentinel: $('sentinelDons'),
+    onPage: (docs, premiere) => {
+      if (premiere) tbody.innerHTML = '';
+      docs.forEach(doc => { donsCache[doc.id] = doc.data(); tbody.insertAdjacentHTML('beforeend', ligneDon(doc.id, doc.data())); });
+    }
+  });
+  listeDons.demarrer();
+  listesActives.push(listeDons);
+}
+$('tblDons').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const tr = b.closest('tr');
+  const id = tr.dataset.id;
+  const d = donsCache[id]; if (!d) return;
+  const ref = db.collection('dons').doc(id);
+  const compteur = db.collection('compteurs').doc('global');
+  const montant = Number(d.montant) || 0;
+  const batch = db.batch();
 
-function chargerActualitesAdmin() {
-  const off = db.collection('actualites').orderBy('createdAt', 'desc').onSnapshot(snap => {
-    const liste = document.getElementById('listeActu');
-    const listeEv = document.getElementById('listeEv');
-    liste.innerHTML = '';
-    listeEv.innerHTML = '';
-    let aVenir = 0;
+  if (b.dataset.act === 'confirmer') {
+    batch.update(ref, { statut: 'confirmé', confirmeLe: Date.now() });
+    batch.set(compteur, { donsTotal: inc(montant) }, { merge: true });
+    if (await action(batch.commit(), 'Don confirmé')) { d.statut = 'confirmé'; tr.outerHTML = ligneDon(id, d); }
+  } else if (b.dataset.act === 'annuler') {
+    batch.update(ref, { statut: 'en attente' });
+    batch.set(compteur, { donsTotal: inc(-montant) }, { merge: true });
+    if (await action(batch.commit(), 'Confirmation annulée')) { d.statut = 'en attente'; tr.outerHTML = ligneDon(id, d); }
+  } else if (b.dataset.act === 'supprimer') {
+    if (!confirm('Supprimer définitivement ce don ?')) return;
+    batch.delete(ref);
+    if (d.statut === 'confirmé') batch.set(compteur, { donsTotal: inc(-montant) }, { merge: true });
+    if (await action(batch.commit(), 'Don supprimé')) { delete donsCache[id]; tr.remove(); }
+  }
+});
+
+/* ===================== ACTUALITÉS / ÉVÉNEMENTS ===================== */
+const actusCache = {};
+let actuEnEdition = null;
+
+$('formActu').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const data = {
+    titre: $('actuTitre').value.trim(), date: $('actuDate').value, image: $('actuImage').value.trim(),
+    lienVisio: $('actuLien').value.trim(), lieu: $('actuLieu').value.trim(), contenu: $('actuContenu').value.trim()
+  };
+  for (const champ of ['image', 'lienVisio']) {
+    if (data[champ] && !/^https?:\/\//i.test(data[champ])) { toast('Les liens doivent commencer par https://', 'erreur'); return; }
+  }
+  const bouton = $('actuBtnSubmit');
+  bouton.disabled = true;
+  const ok = actuEnEdition
+    ? await action(db.collection('actualites').doc(actuEnEdition).update(data), 'Actualité modifiée')
+    : await action(db.collection('actualites').add({ ...data, createdAt: Date.now() }), 'Actualité publiée');
+  bouton.disabled = false;
+  if (ok) { actuEnEdition = null; bouton.textContent = 'Publier'; e.target.reset(); }
+});
+
+function carteActuAdmin(id, a) {
+  return `
+    <div class="card p-4 flex justify-between items-start gap-3" data-id="${id}">
+      <div class="min-w-0">
+        <p class="font-bold">${esc(a.titre)}</p>
+        <p class="text-xs text-gray-400">${esc(a.date)} ${a.lieu ? '· ' + esc(a.lieu) : ''}</p>
+        <p class="text-sm text-gray-600 mt-1">${esc(String(a.contenu || '').slice(0, 220))}</p>
+        ${safeUrl(a.lienVisio) ? `<a href="${safeUrl(a.lienVisio)}" target="_blank" rel="noopener" class="text-sm text-green-700 font-bold">🎥 Lien visio</a>` : ''}
+      </div>
+      <div class="flex flex-col gap-1 text-sm whitespace-nowrap">
+        <button class="text-green-700 font-bold" data-act="modifier">✎ Modifier</button>
+        <button class="text-red-600 font-bold" data-act="supprimer">🗑 Supprimer</button>
+      </div>
+    </div>`;
+}
+function demarrerActualites() {
+  const off = db.collection('actualites').orderBy('createdAt', 'desc').limit(200).onSnapshot(snap => {
     const today = new Date().toISOString().slice(0, 10);
-    
+    let html = '', htmlEv = '', aVenir = 0;
     snap.forEach(doc => {
       const a = doc.data();
-      if (a.date && a.date >= today) aVenir++;
-      
-      const html = `
-        <div class="card" style="padding: 1rem;">
-          <div style="display: flex; justify-content: space-between; gap: 1rem;">
-            <div style="flex: 1;">
-              <p style="font-weight: bold; margin-bottom: 0.5rem;">${a.titre || ''}</p>
-              <p style="font-size: 0.85rem; color: var(--text-soft); margin-bottom: 0.5rem;">
-                ${a.date || ''} ${a.lieu ? '📍 ' + a.lieu : ''}
-              </p>
-              <p style="font-size: 0.95rem; color: var(--text); margin-bottom: 0.5rem;">
-                ${(a.contenu || '').substring(0, 150)}${(a.contenu || '').length > 150 ? '...' : ''}
-              </p>
-              ${a.lienVisio ? `<a href="${a.lienVisio}" target="_blank" style="color: var(--vert); font-weight: bold; text-decoration: none;">🎥 Lien visio</a>` : ''}
-            </div>
-            <div style="display: flex; flex-direction: column; gap: 0.5rem; white-space: nowrap;">
-              <button class="btn btn-primary btn-small" onclick='actuModifier(${JSON.stringify(doc.id)}, ${JSON.stringify(a.titre||"")}, ${JSON.stringify(a.date||"")}, ${JSON.stringify(a.image||"")}, ${JSON.stringify(a.lienVisio||"")}, ${JSON.stringify(a.lieu||"")}, ${JSON.stringify(a.contenu||"")})'>✎ Modifier</button>
-              <button class="btn btn-danger btn-small" onclick="suppActu('${doc.id}')">🗑 Supprimer</button>
-            </div>
-          </div>
-        </div>`;
-      
-      liste.insertAdjacentHTML('beforeend', html);
-      if (a.date && a.date >= today) listeEv.insertAdjacentHTML('beforeend', html);
+      actusCache[doc.id] = a;
+      const carte = carteActuAdmin(doc.id, a);
+      html += carte;
+      if (a.date && a.date >= today) { aVenir++; htmlEv += carte; }
     });
-    
-    document.getElementById('statEv').textContent = aVenir;
-  });
-  
+    $('listeActu').innerHTML = html || '<p class="text-sm text-gray-400">Aucune actualité publiée.</p>';
+    $('listeEv').innerHTML = htmlEv || '<p class="text-sm text-gray-400">Aucun événement à venir.</p>';
+    $('statEv').textContent = aVenir;
+  }, err => console.warn(err.message));
   listesActives.push({ arreter: off });
 }
-
-function suppActu(id) {
-  if (confirm('Êtes-vous sûr de vouloir supprimer cette actualité ?')) {
-    db.collection('actualites').doc(id).delete().catch(err => console.error(err));
+function gererClicActu(e) {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const id = b.closest('[data-id]').dataset.id;
+  if (b.dataset.act === 'supprimer') {
+    if (confirm('Supprimer cette actualité ?')) action(db.collection('actualites').doc(id).delete(), 'Actualité supprimée');
+    return;
   }
+  const a = actusCache[id]; if (!a) return;
+  actuEnEdition = id;
+  $('actuTitre').value = a.titre || ''; $('actuDate').value = a.date || ''; $('actuImage').value = a.image || '';
+  $('actuLien').value = a.lienVisio || ''; $('actuLieu').value = a.lieu || ''; $('actuContenu').value = a.contenu || '';
+  $('actuBtnSubmit').textContent = 'Enregistrer la modification';
+  document.querySelector('[data-tab="actualites"]').click();
+  $('formActu').scrollIntoView({ behavior: 'smooth' });
 }
+$('listeActu').addEventListener('click', gererClicActu);
+$('listeEv').addEventListener('click', gererClicActu);
 
-/* ===================== MESSAGES CONTACT ===================== */
-function chargerMessages() {
+/* ===================== MESSAGES DE CONTACT ===================== */
+function demarrerMessages() {
   const off = db.collection('messages').orderBy('createdAt', 'desc').limit(200).onSnapshot(snap => {
-    const tbody = document.getElementById('tblMessages');
-    tbody.innerHTML = '';
-    
-    snap.forEach(doc => {
+    $('tblMessages').innerHTML = snap.docs.map(doc => {
       const m = doc.data();
-      const pill = m.lu ? 'pill-success' : 'pill-warning';
-      
-      tbody.insertAdjacentHTML('beforeend', `
-        <tr>
-          <td><strong>${m.nom || 'N/A'}</strong></td>
-          <td>${m.email || 'N/A'}</td>
-          <td>${m.sujet || 'N/A'}</td>
-          <td style="max-width: 300px; word-break: break-word;">${(m.message || '').substring(0, 100)}${(m.message || '').length > 100 ? '...' : ''}</td>
-          <td><span class="pill ${pill}">${m.lu ? '✓ Lu' : 'Non lu'}</span></td>
-          <td>
-            <button class="btn btn-secondary btn-small" onclick="toggleLu('${doc.id}', ${!m.lu})">${m.lu ? 'Marquer non lu' : 'Marquer lu'}</button>
-            <button class="btn btn-danger btn-small" onclick="supprMessage('${doc.id}')">🗑</button>
+      return `
+        <tr data-id="${doc.id}" class="${m.lu ? '' : 'font-semibold'}">
+          <td>${esc(m.nom)}</td>
+          <td>${m.email ? `<a class="text-green-700" href="mailto:${esc(m.email)}">${esc(m.email)}</a>` : ''}</td>
+          <td>${esc(m.sujet)}</td>
+          <td class="font-normal">${esc(m.message)}</td>
+          <td class="whitespace-nowrap text-gray-500 font-normal">${esc(formatDate(m.createdAt))}</td>
+          <td class="whitespace-nowrap">
+            <button class="pill ${m.lu ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}" data-act="lu" data-lu="${m.lu ? '1' : '0'}">${m.lu ? 'Lu' : 'Marquer lu'}</button>
+            <button class="text-gray-500 font-bold ml-2" data-act="supprimer">🗑</button>
           </td>
-        </tr>`);
-    });
-  });
-  
+        </tr>`;
+    }).join('') || '<tr><td colspan="6" class="text-gray-400">Aucun message.</td></tr>';
+  }, err => console.warn(err.message));
   listesActives.push({ arreter: off });
 }
-
-function toggleLu(id, val) {
-  db.collection('messages').doc(id).update({ lu: val }).catch(err => console.error(err));
-}
-
-function supprMessage(id) {
-  if (confirm('Êtes-vous sûr ?')) {
-    db.collection('messages').doc(id).delete().catch(err => console.error(err));
+$('tblMessages').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const id = b.closest('tr').dataset.id;
+  const ref = db.collection('messages').doc(id);
+  if (b.dataset.act === 'lu') {
+    action(ref.update({ lu: b.dataset.lu !== '1' }));
+  } else if (confirm('Supprimer ce message ?')) {
+    const batch = db.batch();
+    batch.delete(ref);
+    batch.set(db.collection('compteurs').doc('global'), { messages: inc(-1) }, { merge: true });
+    action(batch.commit(), 'Message supprimé');
   }
-}
+});
 
-/* ===================== MODÉRATION CHAT ===================== */
+/* ===================== MODÉRATION DU CHAT ===================== */
 function demarrerChat() {
-  const tbody = document.getElementById('tblChat');
+  const tbody = $('tblChat');
   const liste = creerDefilementInfini({
-    collection: db.collection('chat'),
-    orderBy: ['createdAt', 'desc'],
-    pageSize: 30,
-    sentinel: document.getElementById('sentinelChat'),
-    onPage: (docs, estPremierePage) => {
-      if (estPremierePage) tbody.innerHTML = '';
-      
+    collection: db.collection('chat'), orderBy: ['createdAt', 'desc'], pageSize: 30,
+    sentinel: $('sentinelChat'),
+    onPage: (docs, premiere) => {
+      if (premiere) tbody.innerHTML = '';
       docs.forEach(doc => {
         const c = doc.data();
         tbody.insertAdjacentHTML('beforeend', `
-          <tr>
-            <td><strong>${c.nom || 'Anonyme'}</strong></td>
-            <td style="max-width: 400px; word-break: break-word;">${c.message || ''}</td>
-            <td style="white-space: nowrap;">${ARM.Utils.formatDate(c.createdAt)}</td>
-            <td>
-              <button class="btn btn-danger btn-small" onclick="suppMsgChat('${doc.id}')">🗑 Supprimer</button>
-            </td>
+          <tr data-id="${doc.id}">
+            <td><b>${esc(c.nom)}</b></td>
+            <td>${esc(c.message)}</td>
+            <td class="whitespace-nowrap text-gray-500">${esc(formatDate(c.createdAt))}</td>
+            <td><button class="text-red-600 font-bold" data-act="supprimer">🗑</button></td>
           </tr>`);
       });
     }
   });
-  
   liste.demarrer();
   listesActives.push(liste);
 }
-
-function suppMsgChat(id) {
-  if (confirm('Supprimer ce message du chat ?')) {
-    db.collection('chat').doc(id).delete().catch(err => console.error(err));
-  }
-}
+$('tblChat').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const tr = b.closest('tr');
+  if (await action(db.collection('chat').doc(tr.dataset.id).delete(), 'Message du chat supprimé')) tr.remove();
+});
 
 /* ===================== ARM TV ===================== */
-function demarrerArmtv() {
-  // Options de thème
-  const sel = document.getElementById('tvTheme');
-  if (sel && !sel.children.length) {
-    sel.innerHTML = '<option value="">-- Choisir un thème --</option>' + 
-      THEMES_ARMTV.map(t => `<option value="${t}">${t}</option>`).join('');
+const tvCache = {};
+let listeTv;
+$('tvTheme').innerHTML = THEMES_ARMTV.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+
+function resetFormTv() {
+  $('formArmtv').reset();
+  $('tvId').value = '';
+  $('tvFormTitre').textContent = 'Ajouter une vidéo à la médiathèque / playlist';
+  $('tvBtnSubmit').textContent = "Ajouter (en attente d'approbation)";
+  $('tvBtnAnnuler').classList.add('hidden');
+}
+$('tvBtnAnnuler').onclick = resetFormTv;
+
+$('formArmtv').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const data = {
+    titre: $('tvTitre').value.trim(), theme: $('tvTheme').value, ordre: parseInt($('tvOrdre').value, 10) || 0,
+    urlVideo: $('tvUrlVideo').value.trim(), miniature: $('tvMiniature').value.trim(), description: $('tvDescription').value.trim()
+  };
+  if (!/^https?:\/\//i.test(data.urlVideo) || (data.miniature && !/^https?:\/\//i.test(data.miniature))) {
+    toast('Les liens doivent commencer par https://', 'erreur'); return;
   }
+  const id = $('tvId').value;
+  const ok = id
+    ? await action(db.collection('armtv_videos').doc(id).update(data), 'Vidéo modifiée')
+    : await action(db.collection('armtv_videos').add({ ...data, statut: 'en attente', createdAt: Date.now() }), 'Vidéo ajoutée — pense à l\'approuver');
+  if (ok) { resetFormTv(); listeTv.rafraichir(); }
+});
 
-  // Ajout d'une vidéo
-  document.getElementById('formArmtv').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    if (!roleManager.possèdePermission('écrire')) {
-      alert('Vous n\'avez pas la permission d\'ajouter des vidéos.');
-      return;
-    }
+$('formDirect').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const activer = e.submitter && e.submitter.dataset.on === 'true';
+  const url = $('directUrl').value.trim();
+  if (activer && !/^https?:\/\//i.test(url)) { toast("Colle d'abord l'URL https://… du flux .m3u8", 'erreur'); return; }
+  action(db.collection('armtv_config').doc('direct').set({
+    enDirect: activer, urlDirect: activer ? url : '', titreDirect: activer ? $('directTitre').value.trim() : ''
+  }, { merge: true }), activer ? '🔴 Direct lancé sur le site' : 'Direct arrêté');
+});
 
-    try {
-      await db.collection('armtv_videos').add({
-        titre: document.getElementById('tvTitre').value,
-        theme: document.getElementById('tvTheme').value,
-        ordre: parseInt(document.getElementById('tvOrdre').value) || 0,
-        urlVideo: document.getElementById('tvUrlVideo').value,
-        miniature: document.getElementById('tvMiniature').value,
-        description: document.getElementById('tvDescription').value,
-        statut: 'en attente',
-        createdAt: Date.now()
-      });
-      e.target.reset();
-      alert('Vidéo ajoutée (en attente d\'approbation).');
-    } catch (err) {
-      console.error('Erreur ajout vidéo:', err);
-      alert('Erreur lors de l\'ajout de la vidéo.');
-    }
-  });
-
-  // Direct
-  document.getElementById('formDirect').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    if (!roleManager.possèdePermission('écrire')) {
-      alert('Vous n\'avez pas la permission de modifier le direct.');
-      return;
-    }
-
-    try {
-      const activer = e.submitter && e.submitter.dataset.on === 'true';
-      await db.collection('armtv_config').doc('direct').set({
-        enDirect: activer,
-        urlDirect: activer ? document.getElementById('directUrl').value : '',
-        titreDirect: activer ? document.getElementById('directTitre').value : ''
-      }, { merge: true });
-      alert(activer ? '🔴 Direct démarré' : '⏹️ Direct arrêté');
-    } catch (err) {
-      console.error('Erreur direct:', err);
-      alert('Erreur lors de la mise à jour du direct.');
-    }
-  });
-
-  // Liste des vidéos
-  const conteneur = document.getElementById('listeArmtv');
-  const liste = creerDefilementInfini({
-    collection: db.collection('armtv_videos'),
-    orderBy: ['createdAt', 'desc'],
-    pageSize: 20,
-    sentinel: document.getElementById('sentinelArmtv'),
-    onPage: (docs, estPremierePage) => {
-      if (estPremierePage) conteneur.innerHTML = '';
-      
+function demarrerArmtv() {
+  const conteneur = $('listeArmtv');
+  listeTv = creerDefilementInfini({
+    collection: db.collection('armtv_videos'), orderBy: ['createdAt', 'desc'], pageSize: 20,
+    sentinel: $('sentinelArmtv'),
+    onPage: (docs, premiere) => {
+      if (premiere) conteneur.innerHTML = '';
       docs.forEach(doc => {
         const v = doc.data();
-        const pillClasse = v.statut === 'approuvé' ? 'pill-success' : v.statut === 'refusé' ? 'pill-danger' : 'pill-warning';
-        
+        tvCache[doc.id] = v;
         conteneur.insertAdjacentHTML('beforeend', `
-          <div class="card" style="padding: 1rem; display: flex; justify-content: space-between; gap: 1rem;">
-            <div style="flex: 1;">
-              <p style="font-weight: bold; margin-bottom: 0.25rem;">${v.titre || ''}</p>
-              <p style="font-size: 0.85rem; color: var(--text-soft); margin-bottom: 0.5rem;">
-                ${v.theme || 'Sans thème'} • Ordre: ${v.ordre ?? 0}
-              </p>
-              <p style="font-size: 0.95rem; margin-bottom: 0.5rem;">${v.description || ''}</p>
-              <span class="pill ${pillClasse}">${v.statut}</span>
+          <div class="card p-4 flex justify-between items-start gap-3" data-id="${doc.id}">
+            <div class="min-w-0">
+              <p class="font-bold">${esc(v.titre)}</p>
+              <p class="text-xs text-gray-400">${esc(v.theme)} · ordre ${esc(v.ordre ?? 0)}</p>
+              <p class="text-sm text-gray-600 mt-1">${esc(v.description)}</p>
+              <span class="statut-tv">${pill(v.statut)}</span>
             </div>
-            <div style="display: flex; flex-direction: column; gap: 0.5rem; white-space: nowrap;">
-              <button class="btn btn-primary btn-small" onclick="armtvMaj('${doc.id}','approuvé')">✔ Approuver</button>
-              <button class="btn btn-danger btn-small" onclick="armtvMaj('${doc.id}','refusé')">✖ Refuser</button>
-              <button class="btn btn-secondary btn-small" onclick="armtvSupp('${doc.id}')">🗑 Supprimer</button>
+            <div class="flex flex-col gap-1 text-sm whitespace-nowrap">
+              <button class="text-green-700 font-bold" data-act="approuvé">✔ Approuver</button>
+              <button class="text-red-600 font-bold" data-act="refusé">✖ Refuser</button>
+              <button class="text-gray-700 font-bold" data-act="modifier">✎ Modifier</button>
+              <button class="text-gray-500 font-bold" data-act="supprimer">🗑 Supprimer</button>
             </div>
           </div>`);
       });
     }
   });
-  
-  liste.demarrer();
-  listesActives.push(liste);
+  listeTv.demarrer();
+  listesActives.push(listeTv);
 }
-
-function armtvMaj(id, statut) {
-  db.collection('armtv_videos').doc(id).update({ statut }).catch(err => console.error(err));
-}
-
-function armtvSupp(id) {
-  if (confirm('Supprimer cette vidéo ?')) {
-    db.collection('armtv_videos').doc(id).delete().catch(err => console.error(err));
+$('listeArmtv').addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-act]'); if (!b) return;
+  const carte = b.closest('[data-id]');
+  const id = carte.dataset.id;
+  const ref = db.collection('armtv_videos').doc(id);
+  const act = b.dataset.act;
+  if (act === 'supprimer') {
+    if (confirm('Supprimer cette vidéo ?') && await action(ref.delete(), 'Vidéo supprimée')) carte.remove();
+  } else if (act === 'modifier') {
+    const v = tvCache[id]; if (!v) return;
+    $('tvId').value = id; $('tvTitre').value = v.titre || ''; $('tvTheme').value = v.theme || THEMES_ARMTV[0];
+    $('tvOrdre').value = v.ordre ?? 0; $('tvUrlVideo').value = v.urlVideo || ''; $('tvMiniature').value = v.miniature || '';
+    $('tvDescription').value = v.description || '';
+    $('tvFormTitre').textContent = 'Modifier la vidéo';
+    $('tvBtnSubmit').textContent = 'Enregistrer la modification';
+    $('tvBtnAnnuler').classList.remove('hidden');
+    $('formArmtv').scrollIntoView({ behavior: 'smooth' });
+  } else if (await action(ref.update({ statut: act }), 'Vidéo ' + act + 'e')) {
+    tvCache[id].statut = act;
+    carte.querySelector('.statut-tv').innerHTML = pill(act);
   }
-}
+});
 
 /* ===================== CONTENU DU SITE ===================== */
 let bureauActuel = [];
 let programmeActuel = [];
 
+$('formInfo').addEventListener('submit', (e) => {
+  e.preventDefault();
+  const lien = $('infoLienCarte').value.trim();
+  if (lien && !/^https:\/\//i.test(lien)) { toast('Le lien de paiement doit commencer par https://', 'erreur'); return; }
+  action(db.collection('contenu').doc('info').set({
+    devise: $('infoDevise').value.trim(), siege: $('infoSiege').value.trim(), iban: $('infoIban').value.trim(),
+    orangeMoney: $('infoOrange').value.trim(), moovMoney: $('infoMoov').value.trim(), wave: $('infoWave').value.trim(),
+    lienPaiementCarte: lien
+  }, { merge: true }), 'Infos enregistrées — visibles sur le site');
+});
+
+function enregistrerBureau() { return action(db.collection('contenu').doc('bureau').set({ membres: bureauActuel }), 'Bureau mis à jour'); }
+function enregistrerProgramme() { return action(db.collection('contenu').doc('programme').set({ items: programmeActuel }), 'Programme mis à jour'); }
+
+$('formBureauMembre').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const membre = { role: $('bmRole').value.trim(), nom: $('bmNom').value.trim(), profession: $('bmProfession').value.trim(), lieu: $('bmLieu').value.trim(), tel: $('bmTel').value.trim() };
+  const idx = parseInt($('bmIndex').value, 10);
+  if (idx >= 0) bureauActuel[idx] = membre; else bureauActuel.push(membre);
+  if (await enregistrerBureau()) resetFormBureau();
+});
+$('bmBtnAnnuler').onclick = resetFormBureau;
+function resetFormBureau() {
+  $('formBureauMembre').reset(); $('bmIndex').value = -1;
+  $('bmBtnSubmit').textContent = 'Ajouter au bureau'; $('bmBtnAnnuler').classList.add('hidden');
+}
+
+$('formProgrammeItem').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const item = { icone: $('piIcone').value.trim(), titre: $('piTitre').value.trim(), texte: $('piTexte').value.trim() };
+  const idx = parseInt($('piIndex').value, 10);
+  if (idx >= 0) programmeActuel[idx] = item; else programmeActuel.push(item);
+  if (await enregistrerProgramme()) resetFormProgramme();
+});
+$('piBtnAnnuler').onclick = resetFormProgramme;
+function resetFormProgramme() {
+  $('formProgrammeItem').reset(); $('piIndex').value = -1;
+  $('piBtnSubmit').textContent = 'Ajouter au programme'; $('piBtnAnnuler').classList.add('hidden');
+}
+
+function boutonsListe(i, total) {
+  return `
+    <button class="text-gray-500 font-bold px-1 ${i === 0 ? 'invisible' : ''}" data-act="monter" title="Monter">↑</button>
+    <button class="text-gray-500 font-bold px-1 mr-2 ${i === total - 1 ? 'invisible' : ''}" data-act="descendre" title="Descendre">↓</button>
+    <button class="text-green-700 font-bold mr-2" data-act="modifier">✎ Modifier</button>
+    <button class="text-red-600 font-bold" data-act="supprimer">🗑</button>`;
+}
+function renderListeBureau() {
+  $('listeBureau').innerHTML = bureauActuel.map((m, i) => `
+    <div class="flex justify-between items-center gap-3 border-b py-2 text-sm" data-i="${i}">
+      <div><b>${esc(m.role)}</b> — ${esc(m.nom)} ${m.tel ? '· ' + esc(m.tel) : ''}</div>
+      <div class="whitespace-nowrap">${boutonsListe(i, bureauActuel.length)}</div>
+    </div>`).join('');
+}
+function renderListeProgramme() {
+  $('listeProgramme').innerHTML = programmeActuel.map((p, i) => `
+    <div class="flex justify-between items-center gap-3 border-b py-2 text-sm" data-i="${i}">
+      <div>${esc(p.icone)} <b>${esc(p.titre)}</b> — ${esc(p.texte)}</div>
+      <div class="whitespace-nowrap">${boutonsListe(i, programmeActuel.length)}</div>
+    </div>`).join('');
+}
+
+function gererListe(tableau, enregistrer, editer) {
+  return (e) => {
+    const b = e.target.closest('[data-act]'); if (!b) return;
+    const i = +b.closest('[data-i]').dataset.i;
+    const act = b.dataset.act;
+    if (act === 'modifier') return editer(i);
+    if (act === 'supprimer') { if (!confirm('Supprimer cet élément ?')) return; tableau().splice(i, 1); }
+    if (act === 'monter' && i > 0) { const t = tableau(); [t[i - 1], t[i]] = [t[i], t[i - 1]]; }
+    if (act === 'descendre' && i < tableau().length - 1) { const t = tableau(); [t[i + 1], t[i]] = [t[i], t[i + 1]]; }
+    enregistrer();
+  };
+}
+$('listeBureau').addEventListener('click', gererListe(() => bureauActuel, enregistrerBureau, (i) => {
+  const m = bureauActuel[i];
+  $('bmIndex').value = i; $('bmRole').value = m.role || ''; $('bmNom').value = m.nom || '';
+  $('bmProfession').value = m.profession || ''; $('bmLieu').value = m.lieu || ''; $('bmTel').value = m.tel || '';
+  $('bmBtnSubmit').textContent = 'Enregistrer la modification'; $('bmBtnAnnuler').classList.remove('hidden');
+  $('formBureauMembre').scrollIntoView({ behavior: 'smooth' });
+}));
+$('listeProgramme').addEventListener('click', gererListe(() => programmeActuel, enregistrerProgramme, (i) => {
+  const p = programmeActuel[i];
+  $('piIndex').value = i; $('piIcone').value = p.icone || ''; $('piTitre').value = p.titre || ''; $('piTexte').value = p.texte || '';
+  $('piBtnSubmit').textContent = 'Enregistrer la modification'; $('piBtnAnnuler').classList.remove('hidden');
+  $('formProgrammeItem').scrollIntoView({ behavior: 'smooth' });
+}));
+
 function demarrerContenu() {
-  // Infos générales
   const offInfo = db.collection('contenu').doc('info').onSnapshot(doc => {
     const d = doc.data() || {};
-    document.getElementById('infoDevise').value = d.devise || PARTY_INFO.devise;
-    document.getElementById('infoSiege').value = d.siege || PARTY_INFO.siege;
-    document.getElementById('infoIban').value = d.iban || '';
-  });
-  
-  listesActives.push({ arreter: offInfo });
+    $('infoDevise').value = d.devise || PARTY_INFO.devise;
+    $('infoSiege').value = d.siege || PARTY_INFO.siege;
+    $('infoIban').value = d.iban || '';
+    $('infoOrange').value = d.orangeMoney || '';
+    $('infoMoov').value = d.moovMoney || '';
+    $('infoWave').value = d.wave || '';
+    $('infoLienCarte').value = d.lienPaiementCarte || '';
+  }, err => console.warn(err.message));
 
-  document.getElementById('formInfo').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    if (!roleManager.possèdePermission('écrire')) {
-      alert('Vous n\'avez pas la permission de modifier le contenu.');
-      return;
-    }
-
-    try {
-      await db.collection('contenu').doc('info').set({
-        devise: document.getElementById('infoDevise').value,
-        siege: document.getElementById('infoSiege').value,
-        iban: document.getElementById('infoIban').value
-      }, { merge: true });
-      alert('✓ Infos générales mises à jour.');
-    } catch (err) {
-      console.error('Erreur mise à jour info:', err);
-      alert('Erreur lors de la mise à jour.');
-    }
-  });
-
-  // Bureau exécutif
   const offBureau = db.collection('contenu').doc('bureau').onSnapshot(doc => {
     const d = doc.data();
-    bureauActuel = (d && Array.isArray(d.membres) && d.membres.length) ? d.membres : BUREAU.slice();
+    bureauActuel = (d && Array.isArray(d.membres)) ? d.membres.slice() : BUREAU.map(m => ({ ...m }));
     renderListeBureau();
-  });
-  
-  listesActives.push({ arreter: offBureau });
+  }, err => console.warn(err.message));
 
-  document.getElementById('formBureauMembre').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    if (!roleManager.possèdePermission('écrire')) {
-      alert('Vous n\'avez pas la permission de modifier le bureau.');
-      return;
-    }
-
-    try {
-      const membre = {
-        role: document.getElementById('bmRole').value,
-        nom: document.getElementById('bmNom').value,
-        profession: document.getElementById('bmProfession').value,
-        lieu: document.getElementById('bmLieu').value,
-        tel: document.getElementById('bmTel').value
-      };
-      
-      const idx = parseInt(document.getElementById('bmIndex').value);
-      if (idx >= 0) {
-        bureauActuel[idx] = membre;
-      } else {
-        bureauActuel.push(membre);
-      }
-      
-      await db.collection('contenu').doc('bureau').set({ membres: bureauActuel }, { merge: true });
-      resetFormBureau();
-      alert('✓ Bureau exécutif mis à jour.');
-    } catch (err) {
-      console.error('Erreur mise à jour bureau:', err);
-      alert('Erreur lors de la mise à jour.');
-    }
-  });
-  
-  document.getElementById('bmBtnAnnuler').onclick = resetFormBureau;
-
-  // Programme politique
   const offProg = db.collection('contenu').doc('programme').onSnapshot(doc => {
     const d = doc.data();
-    programmeActuel = (d && Array.isArray(d.items) && d.items.length) ? d.items : PROGRAMME.slice();
+    programmeActuel = (d && Array.isArray(d.items)) ? d.items.slice() : PROGRAMME.map(p => ({ ...p }));
     renderListeProgramme();
-  });
-  
-  listesActives.push({ arreter: offProg });
+  }, err => console.warn(err.message));
 
-  document.getElementById('formProgrammeItem').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    
-    if (!roleManager.possèdePermission('écrire')) {
-      alert('Vous n\'avez pas la permission de modifier le programme.');
-      return;
-    }
-
-    try {
-      const item = {
-        icone: document.getElementById('piIcone').value,
-        titre: document.getElementById('piTitre').value,
-        texte: document.getElementById('piTexte').value
-      };
-      
-      const idx = parseInt(document.getElementById('piIndex').value);
-      if (idx >= 0) {
-        programmeActuel[idx] = item;
-      } else {
-        programmeActuel.push(item);
-      }
-      
-      await db.collection('contenu').doc('programme').set({ items: programmeActuel }, { merge: true });
-      resetFormProgramme();
-      alert('✓ Programme politique mis à jour.');
-    } catch (err) {
-      console.error('Erreur mise à jour programme:', err);
-      alert('Erreur lors de la mise à jour.');
-    }
-  });
-  
-  document.getElementById('piBtnAnnuler').onclick = resetFormProgramme;
-}
-
-function renderListeBureau() {
-  document.getElementById('listeBureau').innerHTML = bureauActuel.map((m, i) => `
-    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid #e5e7eb;">
-      <div>
-        <strong>${m.role}</strong> — ${m.nom} ${m.tel ? '• ' + m.tel : ''}
-      </div>
-      <div style="display: flex; gap: 0.5rem;">
-        <button class="btn btn-primary btn-small" onclick="bureauEditer(${i})">✎ Modifier</button>
-        <button class="btn btn-danger btn-small" onclick="bureauSupprimer(${i})">🗑 Supprimer</button>
-      </div>
-    </div>`).join('');
-}
-
-function bureauEditer(i) {
-  const m = bureauActuel[i];
-  document.getElementById('bmIndex').value = i;
-  document.getElementById('bmRole').value = m.role;
-  document.getElementById('bmNom').value = m.nom;
-  document.getElementById('bmProfession').value = m.profession || '';
-  document.getElementById('bmLieu').value = m.lieu || '';
-  document.getElementById('bmTel').value = m.tel || '';
-  document.getElementById('bmBtnSubmit').textContent = 'Enregistrer la Modification';
-  document.getElementById('bmBtnAnnuler').classList.remove('hidden');
-  document.getElementById('formBureauMembre').scrollIntoView({ behavior: 'smooth' });
-}
-
-function bureauSupprimer(i) {
-  if (confirm('Supprimer ce membre du bureau ?')) {
-    bureauActuel.splice(i, 1);
-    db.collection('contenu').doc('bureau').set({ membres: bureauActuel }, { merge: true }).catch(err => console.error(err));
-  }
-}
-
-function resetFormBureau() {
-  document.getElementById('formBureauMembre').reset();
-  document.getElementById('bmIndex').value = -1;
-  document.getElementById('bmBtnSubmit').textContent = 'Ajouter au Bureau';
-  document.getElementById('bmBtnAnnuler').classList.add('hidden');
-}
-
-function renderListeProgramme() {
-  document.getElementById('listeProgramme').innerHTML = programmeActuel.map((p, i) => `
-    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0; border-bottom: 1px solid #e5e7eb;">
-      <div>
-        <strong>${p.icone} ${p.titre}</strong> — ${p.texte}
-      </div>
-      <div style="display: flex; gap: 0.5rem;">
-        <button class="btn btn-primary btn-small" onclick="programmeEditer(${i})">✎ Modifier</button>
-        <button class="btn btn-danger btn-small" onclick="programmeSupprimer(${i})">🗑 Supprimer</button>
-      </div>
-    </div>`).join('');
-}
-
-function programmeEditer(i) {
-  const p = programmeActuel[i];
-  document.getElementById('piIndex').value = i;
-  document.getElementById('piIcone').value = p.icone;
-  document.getElementById('piTitre').value = p.titre;
-  document.getElementById('piTexte').value = p.texte;
-  document.getElementById('piBtnSubmit').textContent = 'Enregistrer la Modification';
-  document.getElementById('piBtnAnnuler').classList.remove('hidden');
-  document.getElementById('formProgrammeItem').scrollIntoView({ behavior: 'smooth' });
-}
-
-function programmeSupprimer(i) {
-  if (confirm('Supprimer ce point du programme ?')) {
-    programmeActuel.splice(i, 1);
-    db.collection('contenu').doc('programme').set({ items: programmeActuel }, { merge: true }).catch(err => console.error(err));
-  }
-}
-
-function resetFormProgramme() {
-  document.getElementById('formProgrammeItem').reset();
-  document.getElementById('piIndex').value = -1;
-  document.getElementById('piBtnSubmit').textContent = 'Ajouter au Programme';
-  document.getElementById('piBtnAnnuler').classList.add('hidden');
-}
-
-/* ===================== EXPORT DE DONNÉES ===================== */
-function configurerExport() {
-  document.getElementById('exportAdhesionsCSV').onclick = async () => {
-    const snap = await db.collection('adhesions').get();
-    const data = snap.docs.map(doc => ({
-      Nom: doc.data().nom,
-      Prénom: doc.data().prenom,
-      Email: doc.data().email,
-      Téléphone: doc.data().tel,
-      Région: doc.data().region,
-      Cercle: doc.data().cercle,
-      Statut: doc.data().statut,
-      Date: ARM.Utils.formatDate(doc.data().createdAt)
-    }));
-    ARM.DataExporter.exporterCSV(data, 'adhesions');
-  };
-
-  document.getElementById('exportDonsCSV').onclick = async () => {
-    const snap = await db.collection('dons').get();
-    const data = snap.docs.map(doc => ({
-      Montant: doc.data().montant,
-      Méthode: doc.data().methode,
-      Donateur: doc.data().nom,
-      Référence: doc.data().reference,
-      Statut: doc.data().statut,
-      Date: ARM.Utils.formatDate(doc.data().createdAt)
-    }));
-    ARM.DataExporter.exporterCSV(data, 'dons');
-  };
-
-  document.getElementById('exportMessagesCSV').onclick = async () => {
-    const snap = await db.collection('messages').get();
-    const data = snap.docs.map(doc => ({
-      Nom: doc.data().nom,
-      Email: doc.data().email,
-      Sujet: doc.data().sujet,
-      Message: doc.data().message,
-      Statut: doc.data().lu ? 'Lu' : 'Non lu',
-      Date: ARM.Utils.formatDate(doc.data().createdAt)
-    }));
-    ARM.DataExporter.exporterCSV(data, 'messages');
-  };
-
-  document.getElementById('exportActualitesCSV').onclick = async () => {
-    const snap = await db.collection('actualites').get();
-    const data = snap.docs.map(doc => ({
-      Titre: doc.data().titre,
-      Date: doc.data().date,
-      Lieu: doc.data().lieu,
-      Contenu: doc.data().contenu,
-      LienVisio: doc.data().lienVisio,
-      Créée: ARM.Utils.formatDate(doc.data().createdAt)
-    }));
-    ARM.DataExporter.exporterCSV(data, 'actualites');
-  };
-
-  document.getElementById('exportToutJSON').onclick = async () => {
-    const data = await analyticsManager.exporterDonnées();
-    ARM.DataExporter.exporterJSON(data, 'arm-donnees-completes');
-  };
-}
-
-/* ===================== GRAPHIQUE ANALYTIQUE ===================== */
-let chartInst = null;
-
-function dessinerGraphique(compteurs) {
-  const ctx = document.getElementById('chartAdh');
-  if (!ctx || typeof Chart === 'undefined') return;
-
-  const labels = ['Adhésions', 'Dons (€)', 'Messages'];
-  const data = [compteurs.adhesions || 0, compteurs.donsTotal || 0, compteurs.messages || 0];
-
-  if (chartInst) chartInst.destroy();
-
-  chartInst = new Chart(ctx, {
-    type: 'bar',
-    data: {
-      labels,
-      datasets: [{
-        label: 'Activité globale',
-        data,
-        backgroundColor: ['var(--vert)', 'var(--or)', 'var(--rouge)'],
-        borderRadius: 6,
-        borderSkipped: false
-      }]
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: true,
-      plugins: {
-        legend: { display: true, position: 'top' }
-      },
-      scales: {
-        y: { beginAtZero: true }
-      }
-    }
-  });
+  listesActives.push({ arreter: offInfo }, { arreter: offBureau }, { arreter: offProg });
 }

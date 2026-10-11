@@ -1,45 +1,37 @@
-const CACHE = 'arm-cache-v1';
-const ASSETS = ['index.html', 'app.js', 'data.js', 'manifest.json', 'admin.html', 'admin.js', 'logo.png', 'icon-192.png', 'icon-512.png'];
+/* Service worker A.R.M
+   - Réseau d'abord, cache en secours (le site reste consultable hors ligne).
+   - Ne touche QU'AUX fichiers du site lui-même : les requêtes Firebase
+     (temps réel, connexion admin) ne doivent jamais être mises en cache.
+   - Changer CACHE à chaque mise en ligne force les téléphones à prendre
+     la nouvelle version. */
+const CACHE = 'arm-cache-v3';
+const ASSETS = ['./', 'index.html', 'app.js', 'armtv.js', 'data.js', 'utils.js', 'infinite-scroll.js',
+                'manifest.json', 'logo.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', (e) => {
   self.skipWaiting();
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS).catch(() => {})));
+  e.waitUntil(caches.open(CACHE).then(c => Promise.all(ASSETS.map(a => c.add(a).catch(() => {})))));
 });
 
 self.addEventListener('activate', (e) => {
-  e.waitUntil(
-    caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
-  );
+  e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))));
   self.clients.claim();
 });
 
 self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET') return;
+  const req = e.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  if (url.origin !== self.location.origin) return;          // Firebase, CDN : on laisse passer
+  if (url.pathname.endsWith('admin.html') || url.pathname.endsWith('admin.js')) return; // admin toujours à jour
+
   e.respondWith(
-    fetch(e.request).then(res => {
-      const clone = res.clone();
-      caches.open(CACHE).then(c => c.put(e.request, clone));
+    fetch(req).then(res => {
+      if (res.ok) {
+        const copie = res.clone();
+        caches.open(CACHE).then(c => c.put(req, copie));
+      }
       return res;
-    }).catch(() => caches.match(e.request))
+    }).catch(() => caches.match(req).then(r => r || caches.match('index.html')))
   );
 });
-
-/* ===================== NOTIFICATIONS PUSH EN ARRIÈRE-PLAN ===================== */
-try {
-  importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js');
-  importScripts('https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js');
-  firebase.initializeApp({
-    apiKey: "AIzaSyBcDKDathrYFPCmgh-b9RGoErGcr0UeoPE",
-    authDomain: "arm-boua.firebaseapp.com",
-    projectId: "arm-boua",
-    storageBucket: "arm-boua.firebasestorage.app",
-    messagingSenderId: "988539942178",
-    appId: "1:988539942178:web:9dab94952ac8ffd936e17b"
-  });
-  const messaging = firebase.messaging();
-  messaging.onBackgroundMessage((payload) => {
-    const titre = (payload.notification && payload.notification.title) || 'A.R.M';
-    const corps = (payload.notification && payload.notification.body) || '';
-    self.registration.showNotification(titre, { body: corps, icon: 'icon-192.png' });
-  });
-} catch (err) { /* Cloud Messaging pas encore configuré : sans effet sur le reste du site */ }
