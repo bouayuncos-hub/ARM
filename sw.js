@@ -4,8 +4,8 @@
      (temps réel, connexion admin) ne doivent jamais être mises en cache.
    - Changer CACHE à chaque mise en ligne force les téléphones à prendre
      la nouvelle version. */
-const CACHE = 'arm-cache-v3';
-const ASSETS = ['./', 'index.html', 'app.js', 'armtv.js', 'data.js', 'utils.js', 'infinite-scroll.js',
+const CACHE = 'arm-cache-v4';
+const ASSETS = ['./', 'index.html', 'app.js', 'armtv.js', 'data.js', 'utils.js', 'video-embed.js', 'infinite-scroll.js',
                 'manifest.json', 'logo.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', (e) => {

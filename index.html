@@ -101,26 +101,27 @@
         <p class="text-[11px] muted truncate" id="deviseNav">Fraternité • Liberté • Égalité</p>
       </div>
     </a>
-    <nav class="hidden lg:flex gap-5 text-sm">
+    <nav class="hidden xl:flex gap-5 text-sm">
       <a href="#programme" class="nav-link">Programme</a>
       <a href="#bureau" class="nav-link">Bureau</a>
       <a href="#dons" class="nav-link">Dons</a>
       <a href="#adhesion" class="nav-link">Adhésion</a>
       <a href="#actualites" class="nav-link">Actualités</a>
       <a href="#armtv" class="nav-link">ARM TV</a>
+      <a href="#videos" class="nav-link">Vidéos</a>
       <a href="#chat" class="nav-link">Chat</a>
       <a href="#contact" class="nav-link">Contact</a>
     </nav>
     <div class="flex items-center gap-2 shrink-0">
       <button id="installBtn" class="hidden btn btn-or !py-2 !px-3 text-xs">📲 Installer</button>
       <button id="themeBtn" class="w-10 h-10 rounded-full surface-2 text-lg" aria-label="Changer de thème" title="Mode clair / sombre">🌙</button>
-      <button id="menuBtn" class="lg:hidden w-10 h-10 rounded-full surface-2 text-xl" aria-label="Menu">☰</button>
+      <button id="menuBtn" class="xl:hidden w-10 h-10 rounded-full surface-2 text-xl" aria-label="Menu">☰</button>
     </div>
   </div>
-  <div id="mobileMenu" class="hidden lg:hidden px-4 pb-4 grid grid-cols-2 gap-2 text-sm font-semibold">
+  <div id="mobileMenu" class="hidden xl:hidden px-4 pb-4 grid grid-cols-2 sm:grid-cols-3 gap-2 text-sm font-semibold">
     <a href="#programme" class="chip text-center">Programme</a><a href="#bureau" class="chip text-center">Bureau</a>
     <a href="#dons" class="chip text-center">Dons</a><a href="#adhesion" class="chip text-center">Adhésion</a>
-    <a href="#actualites" class="chip text-center">Actualités</a><a href="#armtv" class="chip text-center">ARM TV</a>
+    <a href="#actualites" class="chip text-center">Actualités</a><a href="#armtv" class="chip text-center">ARM TV</a><a href="#videos" class="chip text-center">Vidéos</a>
     <a href="#chat" class="chip text-center">Chat</a><a href="#contact" class="chip text-center">Contact</a>
   </div>
 </header>
@@ -316,25 +317,67 @@
       <span id="armtvDirectBadge" class="hidden bg-red-600 text-xs font-bold px-3 py-1 rounded-full animate-pulse">🔴 EN DIRECT</span>
     </div>
     <p class="text-white/70 text-sm mb-8">Actualités du Mali, culture, économie, sport et activités de l'A.R.M — diffusion continue.</p>
-    <div class="grid lg:grid-cols-3 gap-6">
-      <div class="lg:col-span-2">
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div class="lg:col-span-2 min-w-0">
         <div class="relative">
-          <video id="armtvPlayer" class="w-full rounded-2xl bg-black aspect-video" controls playsinline preload="metadata"></video>
+          <div id="armtvStage" class="lecteur"></div>
           <div id="armtvVide" class="absolute inset-0 hidden flex-col items-center justify-center text-center rounded-2xl bg-black/80 p-6">
             <img class="arm-logo w-20 h-20 rounded-xl mb-3 object-cover" alt="">
             <p class="font-semibold">Les programmes d'ARM TV arrivent bientôt.</p>
           </div>
         </div>
-        <p class="font-bold mt-3" id="armtvTitreActuel"></p>
-        <p class="text-xs text-white/60" id="armtvThemeActuel"></p>
+        <div class="flex items-start gap-3 mt-3">
+          <div class="min-w-0 flex-1">
+            <div id="armtvBadge" class="mb-1"></div>
+            <p class="font-bold leading-snug" id="armtvTitreActuel"></p>
+            <p class="text-xs text-white/60" id="armtvThemeActuel"></p>
+          </div>
+          <div id="armtvCommandes" class="flex gap-2 shrink-0">
+            <button type="button" id="armtvPrec" class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20" aria-label="Vidéo précédente" title="Précédente">⏮</button>
+            <button type="button" id="armtvSuiv" class="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20" aria-label="Vidéo suivante" title="Suivante">⏭</button>
+          </div>
+        </div>
+        <a id="armtvLienOrigine" href="#" target="_blank" rel="noopener" class="hidden inline-block mt-2 text-xs text-white/60 hover:text-white"></a>
       </div>
-      <div>
+      <div class="min-w-0">
         <div id="armtvThemes" class="flex gap-2 overflow-x-auto pb-2 mb-3"></div>
-        <div id="armtvPlaylistGrid" class="grid grid-cols-2 gap-3 max-h-[420px] overflow-y-auto pr-1"></div>
+        <div id="armtvPlaylistGrid" class="grid grid-cols-2 gap-3 max-h-[460px] overflow-y-auto pr-1"></div>
       </div>
     </div>
   </div>
 </section>
+
+<!-- ===== VIDÉOTHÈQUE ===== -->
+<section id="videos" class="py-20 px-4 max-w-6xl mx-auto">
+  <div class="flex flex-wrap items-end justify-between gap-4 mb-8">
+    <div>
+      <p class="eyebrow mb-2">Sur nos réseaux</p>
+      <h2 class="section-title">Vidéothèque</h2>
+    </div>
+    <div id="videoFiltres" class="flex flex-wrap gap-2"></div>
+  </div>
+  <div id="videoGrid" class="grid sm:grid-cols-2 lg:grid-cols-3 gap-6"></div>
+  <p id="videoVide" class="hidden muted text-sm">Aucune vidéo publiée pour le moment.</p>
+</section>
+
+<!-- Lecteur plein écran de la Vidéothèque -->
+<div id="videoModal" class="hidden fixed inset-0 z-50 bg-black/85 p-3 md:p-8 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="videoModalTitre">
+  <div class="max-w-4xl mx-auto">
+    <div class="flex items-start justify-between gap-3 mb-3 text-white">
+      <div class="min-w-0">
+        <div id="videoModalBadge" class="mb-1"></div>
+        <p id="videoModalTitre" class="serif font-bold text-lg md:text-2xl leading-snug"></p>
+      </div>
+      <button type="button" id="videoModalFermer" class="shrink-0 w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 text-2xl" aria-label="Fermer">×</button>
+    </div>
+    <div id="videoModalStage" class="lecteur"></div>
+    <p id="videoModalDesc" class="text-white/75 text-sm mt-3 whitespace-pre-line"></p>
+    <div class="flex flex-wrap gap-4 mt-3 text-sm">
+      <a id="videoModalLien" href="#" target="_blank" rel="noopener" class="font-semibold text-[#f4c542]"></a>
+      <button type="button" id="videoModalPartager" class="font-semibold text-white/80">↗ Partager</button>
+    </div>
+  </div>
+</div>
 
 <!-- ===== CHAT ===== -->
 <section id="chat" class="py-20 px-4">
@@ -388,6 +431,7 @@
 <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
 <script src="data.js"></script>
 <script src="utils.js"></script>
+<script src="video-embed.js"></script>
 <script src="infinite-scroll.js"></script>
 <script src="app.js"></script>
 <script src="armtv.js"></script>

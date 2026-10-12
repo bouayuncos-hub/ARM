@@ -5,7 +5,8 @@
 |---|---|
 | `index.html` | Site public (accueil, programme, bureau, dons, adhésion, actualités, ARM TV, chat, contact) |
 | `app.js` | Logique du site public |
-| `armtv.js` | Lecteur ARM TV (playlist + direct) |
+| `armtv.js` | ARM TV (playlist + direct) et Vidéothèque |
+| `video-embed.js` | **Nouveau** — reconnaissance des liens YouTube, Facebook, Instagram, TikTok, X + lecteur |
 | `admin.html` + `admin.js` | Tableau de bord administrateur (`/admin.html`, ou l'icône ⚙ en bas du site) |
 | `utils.js` | **Nouveau** — protection de l'affichage (obligatoire sur les deux pages) |
 | `infinite-scroll.js` | Défilement infini (listes longues) |
@@ -14,7 +15,7 @@
 | `manifest.json`, `sw.js` | Installation de l'application sur téléphone |
 | `logo.png`, `icon-192.png`, `icon-512.png` | Logo et icônes |
 
-⚠️ Ces fichiers **remplacent entièrement** la version en ligne : glisse-les tous en même temps, sans en oublier, en particulier `utils.js` qui est nouveau.
+⚠️ Ces fichiers **remplacent entièrement** la version en ligne : glisse-les tous en même temps, sans en oublier, en particulier `utils.js` et `video-embed.js`.
 
 ## 2. Ce qui a été corrigé
 - **Faille de sécurité du chat** : un message piégé pouvait exécuter du code chez tous les visiteurs et dans le tableau de bord. Tout texte est désormais neutralisé avant affichage (site et admin).
@@ -118,3 +119,29 @@ Renseigne : IBAN BMS, numéros Orange Money / Moov Money / Wave, et (si tu en as
 
 ## 8. Paiement par carte réel
 Le plus simple : crée un **Stripe Payment Link** (ou un bouton de don PayPal) avec montant libre, puis colle le lien `https://…` dans l'admin. Le visiteur paie sur la page sécurisée du prestataire ; vérifie ensuite les paiements dans ton espace Stripe/PayPal.
+
+## 9. Publier des vidéos YouTube, Facebook, Instagram, TikTok et X
+Admin → onglet **🎬 Vidéos & ARM TV** → « Publier une vidéo » :
+1. **Colle le lien** de la vidéo. La plateforme est reconnue automatiquement et un **aperçu** s'affiche.
+2. Donne un **titre** et un **thème**.
+3. Coche où la publier : **🎬 Vidéothèque du site** et/ou **📺 ARM TV**.
+4. **🚀 Publier maintenant** (visible tout de suite) ou **Enregistrer sans publier** (brouillon).
+
+Dans la liste : **✔ Publier**, **⏸ Retirer** (la vidéo disparaît du site sans être effacée), **✎ Modifier**, **🗑 Supprimer**, et des filtres par plateforme.
+
+**Liens acceptés**
+| Plateforme | Exemple de lien qui fonctionne |
+|---|---|
+| YouTube | `youtube.com/watch?v=…`, `youtu.be/…`, `youtube.com/shorts/…`, `youtube.com/live/…` |
+| Facebook | `facebook.com/…/videos/…`, `facebook.com/watch?v=…`, `facebook.com/reel/…`, `fb.watch/…` |
+| Instagram | `instagram.com/p/…`, `instagram.com/reel/…` |
+| TikTok | `tiktok.com/@compte/video/123…` (pas les liens courts `vm.tiktok.com` : ouvre-les d'abord, puis copie le lien complet) |
+| X / Twitter | `x.com/compte/status/123…` (X affiche le post entier, texte + vidéo) |
+| Fichier | lien direct `.mp4` / `.m3u8` (Firebase Storage, Cloudflare Stream…) |
+
+**Bon à savoir**
+- La vidéo doit être **publique** sur le réseau social. Une vidéo privée, réservée aux amis ou dont l'intégration est désactivée par son auteur ne pourra pas être lue sur le site.
+- **ARM TV enchaîne automatiquement** les vidéos YouTube et les fichiers. Facebook, Instagram, TikTok et X ne signalent pas la fin d'une vidéo : renseigne la **durée (en minutes)** pour qu'ARM TV passe à la suivante, sinon les visiteurs utilisent ⏮ ⏭.
+- **Miniature** : automatique pour YouTube. Pour les autres, envoie une image dans « Galerie médias », clique « 📋 Lien » et colle-la dans « Miniature ».
+- **Direct** : la zone « Diffusion en direct » accepte maintenant un lien **YouTube Live** ou **Facebook Live**, en plus des flux `.m3u8`.
+- Les règles Firestore ne changent pas (collection `armtv_videos`, déjà protégée : seul l'admin peut publier).

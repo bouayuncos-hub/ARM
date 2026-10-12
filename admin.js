@@ -375,77 +375,159 @@ $('tblChat').addEventListener('click', async (e) => {
   if (await action(db.collection('chat').doc(tr.dataset.id).delete(), 'Message du chat supprimé')) tr.remove();
 });
 
-/* ===================== ARM TV ===================== */
+/* ===================== VIDÉOS & ARM TV =====================
+   L'admin colle un lien (YouTube, Facebook, Instagram, TikTok, X ou fichier).
+   La plateforme est reconnue, un aperçu s'affiche, puis la vidéo est publiée
+   dans la Vidéothèque du site et/ou sur ARM TV (cases à cocher).
+   statut : 'approuvé' = publiée · 'en attente' = brouillon · 'refusé' = retirée */
 const tvCache = {};
 let listeTv;
+let tvFiltre = 'toutes';
 $('tvTheme').innerHTML = THEMES_ARMTV.map(t => `<option value="${esc(t)}">${esc(t)}</option>`).join('');
+
+const STATUT_TV = {
+  'approuvé':   ['Publiée', 'bg-green-100 text-green-700'],
+  'en attente': ['Brouillon', 'bg-yellow-100 text-yellow-700'],
+  'refusé':     ['Retirée', 'bg-red-100 text-red-700']
+};
+const pillTv = (s) => { const [t, c] = STATUT_TV[s] || STATUT_TV['en attente']; return `<span class="pill ${c}">${t}</span>`; };
+
+/* Détection en direct pendant la saisie + aperçu */
+let tvMinuterie = null;
+let tvDernierLien = '';
+function majDetection() {
+  const lien = $('tvUrlVideo').value.trim();
+  const zone = $('tvApercuZone');
+  const msg = $('tvDetection');
+  if (!lien) { msg.innerHTML = ''; zone.classList.add('hidden'); demonterLecteur($('tvApercu')); tvDernierLien = ''; return; }
+  const info = analyserVideo(lien);
+  if (info.erreur) {
+    msg.innerHTML = `<span class="text-red-600 font-semibold">⚠ ${esc(info.erreur)}</span>`;
+    zone.classList.add('hidden'); demonterLecteur($('tvApercu')); tvDernierLien = '';
+    return;
+  }
+  msg.innerHTML = `${badgePlateforme(info.plateforme)} <span class="text-green-700 font-semibold ml-1">✔ Vidéo reconnue</span>`
+    + (info.avertissement ? `<br><span class="text-yellow-700">${esc(info.avertissement)}</span>` : '')
+    + (info.plateforme === 'x' ? '<br><span class="text-gray-500">X affiche le post complet (texte + vidéo).</span>' : '');
+  if (lien !== tvDernierLien) {
+    tvDernierLien = lien;
+    zone.classList.remove('hidden');
+    monterLecteur($('tvApercu'), info, { autoplay: false, poster: miniatureVideo({ miniature: $('tvMiniature').value }, info) });
+  }
+}
+$('tvUrlVideo').addEventListener('input', () => { clearTimeout(tvMinuterie); tvMinuterie = setTimeout(majDetection, 350); });
+$('tvUrlVideo').addEventListener('paste', () => setTimeout(majDetection, 50));
 
 function resetFormTv() {
   $('formArmtv').reset();
   $('tvId').value = '';
-  $('tvFormTitre').textContent = 'Ajouter une vidéo à la médiathèque / playlist';
-  $('tvBtnSubmit').textContent = "Ajouter (en attente d'approbation)";
-  $('tvBtnAnnuler').classList.add('hidden');
+  $('tvOrdre').value = 0;
+  $('tvGalerie').checked = true; $('tvArmtv').checked = true;
+  $('tvFormTitre').textContent = 'Publier une vidéo';
+  $('tvBtnPublier').classList.remove('hidden'); $('tvBtnBrouillon').classList.remove('hidden');
+  $('tvBtnModifier').classList.add('hidden'); $('tvBtnAnnuler').classList.add('hidden');
+  majDetection();
 }
 $('tvBtnAnnuler').onclick = resetFormTv;
 
 $('formArmtv').addEventListener('submit', async (e) => {
   e.preventDefault();
+  const info = analyserVideo($('tvUrlVideo').value);
+  if (info.erreur) { toast(info.erreur, 'erreur'); return; }
+  const miniature = $('tvMiniature').value.trim();
+  if (miniature && !/^https?:\/\//i.test(miniature)) { toast('La miniature doit être un lien https://', 'erreur'); return; }
+  const galerie = $('tvGalerie').checked, armtv = $('tvArmtv').checked;
+  if (!galerie && !armtv) { toast('Coche au moins une destination : Vidéothèque ou ARM TV.', 'erreur'); return; }
+
   const data = {
-    titre: $('tvTitre').value.trim(), theme: $('tvTheme').value, ordre: parseInt($('tvOrdre').value, 10) || 0,
-    urlVideo: $('tvUrlVideo').value.trim(), miniature: $('tvMiniature').value.trim(), description: $('tvDescription').value.trim()
+    titre: $('tvTitre').value.trim(), theme: $('tvTheme').value,
+    ordre: Math.max(0, parseInt($('tvOrdre').value, 10) || 0),
+    duree: Math.max(0, parseFloat($('tvDuree').value) || 0),
+    urlVideo: info.url, plateforme: info.plateforme, miniature,
+    description: $('tvDescription').value.trim(), galerie, armtv
   };
-  if (!/^https?:\/\//i.test(data.urlVideo) || (data.miniature && !/^https?:\/\//i.test(data.miniature))) {
-    toast('Les liens doivent commencer par https://', 'erreur'); return;
-  }
   const id = $('tvId').value;
+  const statut = e.submitter && e.submitter.dataset.statut;
+  const boutons = e.target.querySelectorAll('button');
+  boutons.forEach(b => b.disabled = true);
   const ok = id
     ? await action(db.collection('armtv_videos').doc(id).update(data), 'Vidéo modifiée')
-    : await action(db.collection('armtv_videos').add({ ...data, statut: 'en attente', createdAt: Date.now() }), 'Vidéo ajoutée — pense à l\'approuver');
+    : await action(db.collection('armtv_videos').add({ ...data, statut: statut || 'approuvé', createdAt: Date.now() }),
+        statut === 'en attente' ? 'Vidéo enregistrée en brouillon' : '🚀 Vidéo publiée sur le site');
+  boutons.forEach(b => b.disabled = false);
   if (ok) { resetFormTv(); listeTv.rafraichir(); }
 });
 
+/* Direct : YouTube Live, Facebook Live ou flux .m3u8 */
 $('formDirect').addEventListener('submit', async (e) => {
   e.preventDefault();
   const activer = e.submitter && e.submitter.dataset.on === 'true';
   const url = $('directUrl').value.trim();
-  if (activer && !/^https?:\/\//i.test(url)) { toast("Colle d'abord l'URL https://… du flux .m3u8", 'erreur'); return; }
+  if (activer) {
+    const info = analyserVideo(url);
+    if (info.erreur) { toast(info.erreur, 'erreur'); return; }
+  }
   action(db.collection('armtv_config').doc('direct').set({
     enDirect: activer, urlDirect: activer ? url : '', titreDirect: activer ? $('directTitre').value.trim() : ''
-  }, { merge: true }), activer ? '🔴 Direct lancé sur le site' : 'Direct arrêté');
+  }, { merge: true }), activer ? '🔴 Direct lancé sur ARM TV' : 'Direct arrêté');
 });
+
+/* Filtres par plateforme dans la liste */
+$('tvFiltres').innerHTML = [['toutes', 'Toutes'], ...Object.entries(PLATEFORMES).map(([k, p]) => [k, p.nom])]
+  .map(([k, n]) => `<button type="button" data-f="${k}" class="px-3 py-1 rounded-full font-bold ${k === 'toutes' ? 'bg-gray-800 text-white' : 'bg-gray-200'}">${esc(n)}</button>`).join('');
+$('tvFiltres').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-f]'); if (!b) return;
+  tvFiltre = b.dataset.f;
+  $('tvFiltres').querySelectorAll('button').forEach(x => x.className = 'px-3 py-1 rounded-full font-bold ' + (x === b ? 'bg-gray-800 text-white' : 'bg-gray-200'));
+  appliquerFiltreTv();
+});
+function appliquerFiltreTv() {
+  $('listeArmtv').querySelectorAll('[data-id]').forEach(c => c.classList.toggle('hidden', tvFiltre !== 'toutes' && c.dataset.pf !== tvFiltre));
+}
+
+function carteTvAdmin(id, v) {
+  const info = analyserVideo(v.urlVideo);
+  const pf = info.plateforme || 'fichier';
+  const mini = miniatureVideo(v, info);
+  const dest = [v.galerie === true ? '🎬 Vidéothèque' : '', v.armtv !== false ? '📺 ARM TV' : ''].filter(Boolean).join(' · ');
+  const lienOrig = safeUrl(v.urlVideo);
+  return `
+    <div class="card p-3 flex gap-3 items-start" data-id="${id}" data-pf="${pf}">
+      <div class="w-32 sm:w-40 shrink-0 aspect-video rounded-lg overflow-hidden flex items-center justify-center text-2xl text-white" style="background:${(PLATEFORMES[pf] || PLATEFORMES.fichier).couleur}">
+        ${mini ? `<img src="${esc(mini)}" alt="" loading="lazy" class="w-full h-full object-cover">` : (PLATEFORMES[pf] || PLATEFORMES.fichier).icone}
+      </div>
+      <div class="min-w-0 flex-1">
+        <div class="flex flex-wrap items-center gap-2 mb-1">${badgePlateforme(pf)} <span class="statut-tv">${pillTv(v.statut)}</span></div>
+        <p class="font-bold leading-snug">${esc(v.titre)}</p>
+        <p class="text-xs text-gray-500">${esc(v.theme)} · ordre ${esc(v.ordre ?? 0)}${v.duree ? ' · ' + esc(v.duree) + ' min' : ''}</p>
+        <p class="text-xs text-gray-500">${dest || '<span class="text-red-600">Aucune destination</span>'}</p>
+        ${info.erreur ? `<p class="text-xs text-red-600">⚠ ${esc(info.erreur)}</p>` : ''}
+        ${lienOrig ? `<a href="${lienOrig}" target="_blank" rel="noopener" class="text-xs text-green-700 font-semibold">Ouvrir le lien d'origine ↗</a>` : ''}
+      </div>
+      <div class="flex flex-col gap-1 text-sm whitespace-nowrap">
+        <button class="text-green-700 font-bold text-left" data-act="approuvé">✔ Publier</button>
+        <button class="text-yellow-700 font-bold text-left" data-act="refusé">⏸ Retirer</button>
+        <button class="text-gray-700 font-bold text-left" data-act="modifier">✎ Modifier</button>
+        <button class="text-gray-500 font-bold text-left" data-act="supprimer">🗑 Supprimer</button>
+      </div>
+    </div>`;
+}
 
 function demarrerArmtv() {
   const conteneur = $('listeArmtv');
   listeTv = creerDefilementInfini({
     collection: db.collection('armtv_videos'), orderBy: ['createdAt', 'desc'], pageSize: 20,
-    sentinel: $('sentinelArmtv'),
+    sentinel: $('sentinelArmtv'), texteVide: 'Aucune vidéo pour le moment : colle un premier lien ci-dessus.',
     onPage: (docs, premiere) => {
       if (premiere) conteneur.innerHTML = '';
-      docs.forEach(doc => {
-        const v = doc.data();
-        tvCache[doc.id] = v;
-        conteneur.insertAdjacentHTML('beforeend', `
-          <div class="card p-4 flex justify-between items-start gap-3" data-id="${doc.id}">
-            <div class="min-w-0">
-              <p class="font-bold">${esc(v.titre)}</p>
-              <p class="text-xs text-gray-400">${esc(v.theme)} · ordre ${esc(v.ordre ?? 0)}</p>
-              <p class="text-sm text-gray-600 mt-1">${esc(v.description)}</p>
-              <span class="statut-tv">${pill(v.statut)}</span>
-            </div>
-            <div class="flex flex-col gap-1 text-sm whitespace-nowrap">
-              <button class="text-green-700 font-bold" data-act="approuvé">✔ Approuver</button>
-              <button class="text-red-600 font-bold" data-act="refusé">✖ Refuser</button>
-              <button class="text-gray-700 font-bold" data-act="modifier">✎ Modifier</button>
-              <button class="text-gray-500 font-bold" data-act="supprimer">🗑 Supprimer</button>
-            </div>
-          </div>`);
-      });
+      docs.forEach(doc => { tvCache[doc.id] = doc.data(); conteneur.insertAdjacentHTML('beforeend', carteTvAdmin(doc.id, doc.data())); });
+      appliquerFiltreTv();
     }
   });
   listeTv.demarrer();
   listesActives.push(listeTv);
 }
+
 $('listeArmtv').addEventListener('click', async (e) => {
   const b = e.target.closest('[data-act]'); if (!b) return;
   const carte = b.closest('[data-id]');
@@ -453,19 +535,23 @@ $('listeArmtv').addEventListener('click', async (e) => {
   const ref = db.collection('armtv_videos').doc(id);
   const act = b.dataset.act;
   if (act === 'supprimer') {
-    if (confirm('Supprimer cette vidéo ?') && await action(ref.delete(), 'Vidéo supprimée')) carte.remove();
+    if (confirm('Supprimer définitivement cette vidéo ?') && await action(ref.delete(), 'Vidéo supprimée')) carte.remove();
   } else if (act === 'modifier') {
     const v = tvCache[id]; if (!v) return;
-    $('tvId').value = id; $('tvTitre').value = v.titre || ''; $('tvTheme').value = v.theme || THEMES_ARMTV[0];
-    $('tvOrdre').value = v.ordre ?? 0; $('tvUrlVideo').value = v.urlVideo || ''; $('tvMiniature').value = v.miniature || '';
-    $('tvDescription').value = v.description || '';
+    $('tvId').value = id;
+    $('tvUrlVideo').value = v.urlVideo || ''; $('tvTitre').value = v.titre || '';
+    $('tvTheme').value = THEMES_ARMTV.includes(v.theme) ? v.theme : THEMES_ARMTV[0];
+    $('tvOrdre').value = v.ordre ?? 0; $('tvDuree').value = v.duree || '';
+    $('tvMiniature').value = v.miniature || ''; $('tvDescription').value = v.description || '';
+    $('tvGalerie').checked = v.galerie === true; $('tvArmtv').checked = v.armtv !== false;
     $('tvFormTitre').textContent = 'Modifier la vidéo';
-    $('tvBtnSubmit').textContent = 'Enregistrer la modification';
-    $('tvBtnAnnuler').classList.remove('hidden');
+    $('tvBtnPublier').classList.add('hidden'); $('tvBtnBrouillon').classList.add('hidden');
+    $('tvBtnModifier').classList.remove('hidden'); $('tvBtnAnnuler').classList.remove('hidden');
+    tvDernierLien = ''; majDetection();
     $('formArmtv').scrollIntoView({ behavior: 'smooth' });
-  } else if (await action(ref.update({ statut: act }), 'Vidéo ' + act + 'e')) {
+  } else if (await action(ref.update({ statut: act }), act === 'approuvé' ? 'Vidéo publiée' : 'Vidéo retirée du site')) {
     tvCache[id].statut = act;
-    carte.querySelector('.statut-tv').innerHTML = pill(act);
+    carte.querySelector('.statut-tv').innerHTML = pillTv(act);
   }
 });
 
